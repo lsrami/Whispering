@@ -1,0 +1,34 @@
+dataloader_conf:
+    num_workers: 4
+    pin_memory: True
+    prefetch_factor: 4
+    drop_last: False
+
+dataset_conf:
+    filter_conf:
+        max_length: 30 # 音频最大长度/s
+        min_length: 0.1
+        token_max_length: 448 # token最大长度
+        token_min_length: 1
+    resample_conf:
+        resample_rate: 16000
+    speed_perturb: false # 测试必须设为false
+    spec_aug: false # 测试必须设为false
+    spec_aug_conf:
+        num_t_mask: 2
+        num_f_mask: 2
+        max_t: 50
+        max_f: 10
+    spec_sub: false # 测试必须设为false
+    spec_sub_conf:
+        num_t_sub: 3
+        max_t: 30
+    shuffle: false # 测试必须设为false
+    shuffle_conf:
+        shuffle_size: 1500
+    sort: true
+    sort_conf:
+        sort_size: 500  # sort_size should be less than shuffle_size
+    batch_conf:
+        batch_type: 'static' # static or dynamic
+        batch_size: 8

@@ -1,0 +1,13 @@
+Pillow
+pyyaml>=5.1
+tensorboard
+tensorboardX
+coloredlogs
+evaluate
+soundfile
+jiwer
+transformers>=4.30.0
+accelerate
+datasets
+# torch>=1.13.0
+# torchaudio>=0.13.0

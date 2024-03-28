@@ -1,0 +1,52 @@
+dataloader_conf:
+    num_workers: 2
+    pin_memory: True
+    prefetch_factor: 4
+    drop_last: False
+
+dataset_conf:
+    filter_conf:
+        max_length: 30 # 音频最大长度/s
+        min_length: 0.1
+        token_max_length: 448 # token最大长度
+        token_min_length: 1
+    resample_conf:
+        resample_rate: 16000
+    speed_perturb: true
+    spec_aug: true
+    spec_aug_conf:
+        num_t_mask: 2
+        num_f_mask: 2
+        max_t: 50
+        max_f: 10
+    spec_sub: true
+    spec_sub_conf:
+        num_t_sub: 3
+        max_t: 30
+    shuffle: true
+    shuffle_conf:
+        shuffle_size: 1500
+    sort: true
+    sort_conf:
+        sort_size: 500  # sort_size should be less than shuffle_size
+    batch_conf:
+        batch_type: 'static' # static or dynamic
+        batch_size: 2
+
+train_conf:
+    use_amp: False
+    fp16_grad_sync: False
+    grad_clip: 5
+    accum_grad: 1
+    max_epoch: 360
+    max_step: 1000
+    log_interval: 2
+    step_save_interval: 20
+    epoch_save_interval: 1
+
+optim: adam
+optim_conf:
+    lr: 0.001
+scheduler: warmuplr     # pytorch v1.1.0+ required
+scheduler_conf:
+    warmup_steps: 25000
