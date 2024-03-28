@@ -15,7 +15,7 @@ num_gpus=$(echo "${CUDA_VISIBLE_DEVICES}" | awk -F',' '{print NF}')
 stage=1 
 stop_stage=1
 
-data_type=shard
+data_type=shard # raw/shard
 train_config=conf/train_whisper.yaml
 test_config="conf/test_whisper.yaml"
 pretrain_model_dir=pretrain_model/openai/whisper-base # 指定预训练模型路径
@@ -60,7 +60,7 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
           # --resume_flag # 是否恢复训练
 fi
 
-if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
+if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
     # 测试
     python whispering/bin/test.py \
           --config $test_config \
