@@ -121,9 +121,13 @@ def main(args):
         step = infos.get('step', -1) + 1
         start_epoch = infos.get('epoch', 0)
         start_batch = infos.get('batch_idx', -1) + 1
+        metric_type = infos.get('metric_type', 'loss')
         best_metric = infos.get('best_metric', float('inf'))
     else:
-        step, start_epoch, start_batch, best_metric = 0, 0, 0, float('inf')
+        metric_type = args.metric_type
+        step, start_epoch, start_batch= 0, 0, 0
+        best_metric = float('-inf') if metric_type == 'bleu' else float('inf')
+
 
     # Get the training parameters
     train_conf = configs.get('train_conf', {})
@@ -134,7 +138,6 @@ def main(args):
     log_interval = train_conf.get('log_interval', 100)
     use_amp = train_conf.get('use_amp', False)
     fp16_grad_sync = train_conf.get('fp16_grad_sync', False)
-    metric_type = args.metric_type
 
     # Set the training parameters
     save_model_dir = args.save_model_dir
@@ -254,17 +257,16 @@ def main(args):
                         save_checkpoint_dir, optimizer, scheduler, infos=None)
 
     # Initialize the trainer
-    executor = Executor(max_step=max_step,
+    executor = Executor(step=step,
+                        max_step=max_step,
                         max_epoch=max_epoch,
                         step_save_interval=step_save_interval,
                         epoch_save_interval=epoch_save_interval,
                         log_interval=log_interval,
-                        metric_type=metric_type)
+                        metric_type=metric_type,
+                        best_metric=best_metric)
     if rank == 0:
         logger.debug(f"max_step: {max_step} max_epoch: {max_epoch} step_save_interval: {step_save_interval} epoch_save_interval: {epoch_save_interval} log_interval: {log_interval} metric_type: {metric_type} step: {step} start_epoch: {start_epoch} start_batch: {start_batch}")
-    executor.lr = optimizer.param_groups[0]['lr']
-    executor.step = step
-    executor.best_metric = best_metric
 
     for epoch in range(start_epoch, max_epoch):
         executor.epoch = epoch

@@ -26,23 +26,23 @@ from whispering.metrics import load_metric
 
 class Executor:
 
-    def __init__(self, max_step=10000, max_epoch=150, step_save_interval=100, epoch_save_interval=1, log_interval=10, metric_type = 'wer'):
-        self.step = 0
+    def __init__(self, step=0, max_step=10000, max_epoch=150, step_save_interval=100, epoch_save_interval=1, log_interval=10, metric_type = 'wer', best_metric=float('inf')):
         self.epoch = 0
         self.lr = 0.005
         self.should_stop = False
-        self.best_metric = float('inf')
         self.cv_loss = 100
         self.train_loss = 100
-        self.best_checkpoint_name = 'checkpoint_init'
+        self.best_checkpoint_name = 'checkpoint_epoch_init'
         self.logger = logging.getLogger('train_logger')
 
+        self.step = step
         self.max_step=max_step
         self.max_epoch=max_epoch
         self.step_save_interval=step_save_interval
         self.epoch_save_interval=epoch_save_interval
         self.log_interval=log_interval
         self.metric_type = metric_type
+        self.best_metric = best_metric
         self.metric = load_metric(self.metric_type)
 
 
@@ -200,10 +200,12 @@ class Executor:
 
             self.cv_loss = total_loss / num_seen_utts
 
+            maximize_flag = False
             if self.metric_type != 'loss':
                 current_metric = self.metric.compute()
                 if self.metric_type == 'bleu':
                     current_metric = current_metric['bleu']
+                    maximize_flag = True
 
             else:
                 current_metric = self.cv_loss
@@ -223,10 +225,10 @@ class Executor:
                     })
 
                 best_checkpoint_dir = os.path.join(save_model_dir, f"checkpoint_best")
-                is_best = save_checkpoint_best(current_metric, self.best_metric, save_checkpoint_dir, best_checkpoint_dir, maximize=False)
+                is_best = save_checkpoint_best(current_metric, self.best_metric, save_checkpoint_dir, best_checkpoint_dir, maximize=maximize_flag)
                 self.best_metric = current_metric if is_best else self.best_metric
                 self.best_checkpoint_name = os.path.basename(save_checkpoint_dir) if is_best else self.best_checkpoint_name
-                log_str = f"CV-done: epoch: {self.epoch} step: {self.step} cv_loss: {self.cv_loss} best_checkpoint: {self.best_checkpoint_name} metric_type: {self.metric_type} best_metric: {self.best_metric} current_is_best: {is_best}"
+                log_str = f"CV-done: epoch: {self.epoch} step: {self.step} cv_loss: {self.cv_loss} best_checkpoint: {self.best_checkpoint_name} metric_type: {self.metric_type} current_metric: {current_metric} best_metric: {self.best_metric} current_is_best: {is_best}"
 
                 self.logger.debug(log_str)
 
