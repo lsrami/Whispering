@@ -50,7 +50,8 @@ def get_args():
     parser.add_argument('--task',
                         default='transcribe',
                         type=str,
-                        help='task')
+                        choices=['transcribe', 'translate'],
+                        help='Training task type')
     parser.add_argument('--language',
                         default='chinese',
                         type=str,
@@ -59,15 +60,19 @@ def get_args():
                         default='loss',
                         type=str,
                         choices=['loss', 'cer', 'wer', 'bleu'],
-                        help='metric type. Choose from: loss, cer, wer, bleu')
+                        help='best model preservation metrics')
     parser.add_argument('--timestamps',
                         action='store_true',
                         default=False,
-                        help='timestamps')
-    parser.add_argument('--resume_flag',
+                        help='Whether to use timestamp training')
+    parser.add_argument('--label_json',
                         action='store_true',
                         default=False,
-                        help='timestamps')
+                        help='Whether to use json format labels')
+    parser.add_argument('--resume_train',
+                        action='store_true',
+                        default=False,
+                        help='Resume training from checkpoint')
     parser.add_argument('--override_config',
                         action='append',
                         default=[],
@@ -117,7 +122,7 @@ def main(args):
     dataloader_conf = configs.get('dataloader_conf', {})
 
     # Retrieve parameters from the point of last interruption
-    if args.resume_flag:
+    if args.resume_train:
         step = infos.get('step', -1) + 1
         start_epoch = infos.get('epoch', 0)
         start_batch = infos.get('batch_idx', -1) + 1
@@ -152,12 +157,16 @@ def main(args):
     train_dataset = Dataset(args.data_type,
                             args.train_data,
                             train_dataset_conf,
+                            args.label_json,
+                            args.timestamps,
                             partition=True,
                             whisper_processor=whisper_processor)
 
     cv_dataset = Dataset(args.data_type,
                          args.cv_data,
                          cv_dataset_conf,
+                         args.label_json,
+                         args.timestamps,
                          partition=False,
                          whisper_processor=whisper_processor)
 
@@ -240,7 +249,7 @@ def main(args):
         scaler = torch.cuda.amp.GradScaler()
 
     # Load the optimizer state from the last interruption
-    if args.resume_flag:
+    if args.resume_train:
         if optimizer_state_dict is not None:
             optimizer.load_state_dict(optimizer_state_dict)
         if scheduler_state_dict is not None:

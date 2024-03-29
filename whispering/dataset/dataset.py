@@ -120,6 +120,8 @@ class DataList(IterableDataset):
 def Dataset(data_type,
             data_list_file,
             conf,
+            label_json,
+            timestamps,
             partition=True,
             whisper_processor=None):
     """ Construct dataset from arguments
@@ -152,7 +154,7 @@ def Dataset(data_type,
 
     # whisper_processor
     dataset = Processor(dataset, processor.data_processor,
-                        whisper_processor, label_type="json", timestamps=False)
+                        whisper_processor, label_json=label_json, timestamps=timestamps)
 
     filter_conf = conf.get('filter_conf', {})
     dataset = Processor(dataset, processor.filter, **filter_conf)

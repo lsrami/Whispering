@@ -47,7 +47,6 @@ fi
 
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
     # 多卡训练
-
     torchrun --rdzv_backend=c10d  --rdzv_id=whispering --rdzv_endpoint=localhost:0 --nnodes=1 --nproc_per_node=${num_gpus} --max_restarts=3 \
           whispering/bin/train.py \
           --config $train_config \
@@ -56,8 +55,14 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
           --cv_data data/dev/data.list \
           --save_model_dir finetuned_model/whispering \
           --pretrain_model_dir $pretrain_model_dir \
-          --metric_type cer
-          # --resume_flag # 是否恢复训练
+          --metric_type cer \
+          --task transcribe \
+          --language chinese
+
+    # 其他训练参数说明
+    # --resume_train # 是否从上次中断的地方继续训练，必须把 --pretrain_model_dir 指为上次中断的模型，而不是初始预训练模型
+    # --label_json # 文本标签的类型是否为json类型，在动态多语言、多任务训练时必须指定
+    # --timestamps # 是否使用带时间戳数据训练，只在指定 --label_json 后才生效
 fi
 
 if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
@@ -68,7 +73,10 @@ if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
           --test_data data/test/data.list \
           --result_path finetuned_model/whispering/test_cer.txt \
           --pretrain_model_dir finetuned_model/whispering/checkpoint_best \
-          --metric_type cer
+          --metric_type cer \
+          --task transcribe \
+          --language chinese
+
 fi
 
 if [ ${stage} -le 9 ] && [ ${stop_stage} -ge 9 ]; then

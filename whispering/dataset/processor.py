@@ -316,14 +316,14 @@ def _load_timestamps_transcript(whisper_processor, transcript, timestamp_begin, 
     return labels
 
 
-def data_processor(data, whisper_processor, label_type="json", timestamps=False):
+def data_processor(data, whisper_processor, label_json=False, timestamps=False):
     """ Apply data processor.
         Inplace operation.
 
         Args:
             data: Iterable[{key, wav, txt, sample_rate}]
             whisper_processor: Whisper processor object.
-            label_type: Type of label, default is "json".
+            label_json: Whether to use json format labels.
             timestamps: Boolean indicating whether timestamps are present in the data.
 
         Returns:
@@ -349,7 +349,7 @@ def data_processor(data, whisper_processor, label_type="json", timestamps=False)
         sample_rate = sample['sample_rate']
         duration = waveform.size(-1) / sample_rate
 
-        if label_type == "json":
+        if label_json:
             language, task, txt = _load_json_transcript(txt, timestamps)
 
         # Set language and task for each individual entry
