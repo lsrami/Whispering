@@ -61,14 +61,14 @@ def get_args():
                         type=str,
                         choices=['loss', 'cer', 'wer', 'bleu'],
                         help='best model preservation metrics')
-    parser.add_argument('--timestamps',
-                        action='store_true',
-                        default=False,
-                        help='Whether to use timestamp training')
     parser.add_argument('--label_json',
                         action='store_true',
                         default=False,
                         help='Whether to use json format labels')
+    parser.add_argument('--timestamps',
+                        action='store_true',
+                        default=False,
+                        help='Whether to use timestamp training')
     parser.add_argument('--resume_train',
                         action='store_true',
                         default=False,

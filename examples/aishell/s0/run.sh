@@ -17,7 +17,7 @@ stop_stage=1
 
 data_type=shard # raw/shard
 train_config=conf/train_whisper.yaml
-test_config="conf/test_whisper.yaml"
+test_config=conf/test_whisper.yaml
 pretrain_model_dir=pretrain_model/openai/whisper-base # 指定预训练模型路径
 
 . tools/parse_options.sh || exit 1;
