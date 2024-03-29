@@ -32,6 +32,7 @@ __pycache__/
 .DS_Store
 
 pretrain_model/*
+!pretrain_model/.gitkeep
 finetuned_model
 logs
 data

@@ -1,4 +1,4 @@
-(English|[Chinese](./README.md))
+(English|[Chinese](../README.md))
 
 # Whispering: A dynamic multi-language, multi-task Whisper model training framework
 <p align="left">
@@ -7,7 +7,7 @@
     <a href=""><img src="https://img.shields.io/badge/Pytorch-%3E%3D1.13.0-blue"></a>
 </p>
 
-Whispering supports pre-training and fine-tuning of all Whisper models open-sourced by [OpenAI](https://huggingface.co/openai) on hugging face, greatly improving the IO bottleneck of large data volume training. This framework has been verified on datasets of tens of thousands of hours, with stable and efficient training.
+Whispering supports pre-training and fine-tuning of all Whisper models open-sourced by [OpenAI](https://huggingface.co/openai) on hugging face, using the [UIO](https://github.com/wenet-e2e/wenet/blob/main/docs/UIO.md) method for data loading, the IO bottleneck in large-scale data training has been greatly improved. This framework has been verified on datasets of tens of thousands of hours, with stable and efficient training.
 
 <div align="center">  
 <h4>

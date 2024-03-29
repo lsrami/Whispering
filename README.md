@@ -1,4 +1,4 @@
-(简体中文|[English](./README_en.md))
+(简体中文|[English](./docs/README_en.md))
 
 # Whispering: 动态多语言、多任务Whisper模型训练框架
 <p align="left">
@@ -7,7 +7,7 @@
     <a href=""><img src="https://img.shields.io/badge/Pytorch-%3E%3D1.13.0-blue"></a>
 </p>
 
-Whispering支持[OpenAI](https://huggingface.co/openai)在hugging face上开源的Whisper所有型号模型预训练和微调，极大提升了大数据量训练IO瓶颈，该框架已在上万小时数据集上得到验证，训练稳定，快速高效。
+Whispering支持[OpenAI](https://huggingface.co/openai)在hugging face上开源的Whisper所有型号模型预训练和微调，使用[UIO](https://github.com/wenet-e2e/wenet/blob/main/docs/UIO.md)方式进行数据加载，极大提升了大数据量训练IO瓶颈，该框架已在上万小时数据集上得到验证，训练稳定，快速高效。
 
 <div align="center">  
 <h4>
@@ -140,8 +140,10 @@ tail finetuned_model/whispering/test_cer.txt
 
 <a name="联系我们"></a>
 ## 联系我们
+参考教程：
+- [Aishell微调whisper-base](./docs/tutorial_aishell.md)
 
-如果您在使用中遇到问题，可以直接在github页面提Issues，欢迎语音兴趣爱好者进行交流和讨论。
+如果您在使用中遇到其他问题，可以直接在github页面提Issues，欢迎语音兴趣爱好者进行交流和讨论。
 
 
 <a name="致谢名单"></a>
