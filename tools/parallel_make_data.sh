@@ -20,7 +20,7 @@ export num_utts_per_shard
 export data_type
 export data_dir_list
 
-. ./parse_options.sh || exit 1;
+. tools/parse_options.sh || exit 1;
 
 run_command() {
 
@@ -29,10 +29,10 @@ run_command() {
     if [ $data_type == "shard" ]; then
     tools/make_shard_list.py --num_utts_per_shard $num_utts_per_shard \
         --num_threads $nj $data_dir/wav.scp $data_dir/text --prefix $data_name \
-        $(realpath $data_dir/shards) $data_dir/${data_name}_data.list >$data_dir/log.txt 2>&1 
+        $(realpath $data_dir/shards) $data_dir/${data_name}_${data_type}_data.list >$data_dir/log.txt 2>&1 
     else
     tools/make_raw_list.py $data_dir/$x/wav.scp $data_dir/$x/text \
-        $data_dir/${data_name}_data.list >$data_dir/log.txt 2>&1 
+        $data_dir/${data_name}_${data_type}_data.list >$data_dir/log.txt 2>&1 
     fi
 }
 
