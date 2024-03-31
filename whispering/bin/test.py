@@ -42,7 +42,8 @@ def get_args():
     parser.add_argument('--task',
                         default='transcribe',
                         type=str,
-                        help='task')
+                        choices=['transcribe', 'translate'],
+                        help='Training task type')
     parser.add_argument('--language',
                         default='chinese',
                         type=str,
@@ -52,6 +53,10 @@ def get_args():
                         type=str,
                         choices=['cer', 'wer', 'bleu'],
                         help='metric type. Choose from: cer, wer, bleu')
+    parser.add_argument('--label_json',
+                        action='store_true',
+                        default=False,
+                        help='Whether to use json format labels')
     parser.add_argument('--timestamps',
                         action='store_true',
                         default=False,
@@ -79,10 +84,17 @@ def main(args):
         args.task,
         args.timestamps,
         device=device)
+    
+    forced_decoder_ids = whisper_processor.get_decoder_prompt_ids(
+        language=args.language,
+        task=args.task,
+        no_timestamps=not args.timestamps)
 
     test_dataset = Dataset(args.data_type,
                            args.test_data,
                            dataset_conf,
+                           args.label_json,
+                           args.timestamps,
                            partition=False,
                            whisper_processor=whisper_processor)
 
@@ -110,9 +122,9 @@ def main(args):
                                      whisper_processor.tokenizer.pad_token_id)
 
                 generated_preds = model.generate(inputs=feats,
-                                                 decoder_input_ids=labels[:, :3],
+                                                 forced_decoder_ids=forced_decoder_ids,
                                                  max_new_tokens=448,
-                                                 return_timestamps=False)
+                                                 return_timestamps=not args.timestamps)
 
                 decoded_labels = whisper_processor.batch_decode(
                     labels, skip_special_tokens=True)

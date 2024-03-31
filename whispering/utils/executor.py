@@ -159,6 +159,7 @@ class Executor:
         rank = train_conf.get('rank', 0)
         save_model_dir = train_conf.get('save_model_dir', 'save_model_dir')
         distributed = train_conf['is_distributed']
+        forced_decoder_ids = train_conf['forced_decoder_ids']
 
         num_seen_utts = 1
         total_loss = 0.0
@@ -185,9 +186,11 @@ class Executor:
                     # Note: Convert -100 pads to tokenizer.pad_token_id before decoding.
                     labels = torch.where(labels != -100, labels, whisper_processor.tokenizer.pad_token_id)
 
+                    # Note: In multi-language and multi-task hybrid training
+                    # it is only verified on the specified task due to the limitation of forced_decoder_ids
                     model_instance = model.module if distributed else model
                     generated_preds = model_instance.generate(inputs=feats,
-                                                            decoder_input_ids=labels[:, :3],
+                                                            forced_decoder_ids=forced_decoder_ids,
                                                             max_new_tokens=448,
                                                             return_timestamps=False)
 

@@ -111,7 +111,12 @@ def main(args):
     # Randomly initialize the model
     if False:
         model.init_weights()
-
+    # set decoder ids
+    forced_decoder_ids = whisper_processor.get_decoder_prompt_ids(
+        language=args.language,
+        task=args.task,
+        no_timestamps=not args.timestamps)
+    
     # Parameters for dataset and dataloader
     train_dataset_conf = configs['dataset_conf']
     cv_dataset_conf = copy.deepcopy(train_dataset_conf)
@@ -152,6 +157,7 @@ def main(args):
     train_conf['is_distributed'] = distributed
     train_conf['use_amp'] = use_amp
     train_conf['save_model_dir'] = save_model_dir
+    train_conf['forced_decoder_ids'] = forced_decoder_ids
 
     # Load the dataset and dataloader
     train_dataset = Dataset(args.data_type,
