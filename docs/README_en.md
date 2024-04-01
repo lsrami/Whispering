@@ -53,7 +53,7 @@ git clone https://huggingface.co/openai/whisper-base
 
 Note: The `config.json` provided by the official model has both `bos_token_id` and `eos_token_id` values set to 50257, which might be a bug.
 
-Therefore, when [doing padding](./whispering/dataset/processor.py#L603), the `decoder_start_token_id` pointing to 50258 is used to remove the first token in labels, instead of the `bos_token_id` in the official tutorial.
+Therefore, when [doing padding](../whispering/dataset/processor.py#L610), the `decoder_start_token_id` pointing to 50258 is used to remove the first token in labels, instead of the `bos_token_id` in the official tutorial.
 
 <a name="data-preparation"></a>
 ## Data Preparation

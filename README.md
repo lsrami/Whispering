@@ -53,7 +53,7 @@ git clone https://huggingface.co/openai/whisper-base
 
 注意：官方模型提供的`config.json`中`bos_token_id`和`eos_token_id`的值都为50257，这可能是一个bug
 
-因此[做padding](./whispering/dataset/processor.py#L603)时使用了指向50258的`decoder_start_token_id`去除labels中的第一个token，而不是官方教程中的`bos_token_id`
+因此[做padding](./whispering/dataset/processor.py#L610)时使用了指向50258的`decoder_start_token_id`去除labels中的第一个token，而不是官方教程中的`bos_token_id`
 
 
 <a name="准备数据"></a>
@@ -142,6 +142,7 @@ tail finetuned_model/whispering/test_cer.txt
 ## 联系我们
 参考教程：
 - [Aishell微调whisper-base](./docs/tutorial_aishell.md)
+- [已知问题清单](./docs/issues_list.md)
 
 如果您在使用中遇到其他问题，可以直接在github页面提Issues，欢迎语音兴趣爱好者进行交流和讨论。
 

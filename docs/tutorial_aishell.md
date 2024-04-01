@@ -17,4 +17,11 @@ bash run.sh --stage 1 --stop_stage 1
 bash run.sh --stage 2 --stop_stage 2
 ```
 
+其他特殊说明：
+
+1. 如果标签类型为json，训练和测试指定 --label_json 
+2. 如果需要时间戳，训练和测试指定 --timestamps
+3. 如果需要从中断的地方恢复训练，训练指定 --resume_train
+4. --metric_type 支持`['bleu', 'wer', 'cer', 'loss']`四种策略，`loss`策略使用于各种任务
+
 未完待续。。。
