@@ -124,7 +124,7 @@ def main(args):
                 generated_preds = model.generate(inputs=feats,
                                                  forced_decoder_ids=forced_decoder_ids,
                                                  max_new_tokens=448,
-                                                 return_timestamps=not args.timestamps)
+                                                 return_timestamps=args.timestamps)
 
                 decoded_labels = whisper_processor.batch_decode(
                     labels, skip_special_tokens=True)
