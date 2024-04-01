@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import io
 import logging
 import json
 import random
@@ -70,6 +71,16 @@ def tar_file_and_group(data):
         Returns:
             Iterable[{key, wav, txt, sample_rate}]
     """
+
+    def load_audio(file_obj, postfix):
+        if format == 'wav':
+            waveform, sample_rate = torchaudio.load(file_obj, format=postfix)
+        else:
+            # fix: AttributeError: '_Stream' object has no attribute 'seekable'
+            audio_data = io.BytesIO(file_obj.read())
+            waveform, sample_rate = torchaudio.load(audio_data, format=postfix)
+        return waveform, sample_rate
+
     for sample in data:
         assert 'stream' in sample
         stream = tarfile.open(fileobj=sample['stream'], mode="r|*")
@@ -92,7 +103,7 @@ def tar_file_and_group(data):
                     if postfix == 'txt':
                         example['txt'] = file_obj.read().decode('utf8').strip()
                     elif postfix in AUDIO_FORMAT_SETS:
-                        waveform, sample_rate = torchaudio.load(file_obj)
+                        waveform, sample_rate = load_audio(file_obj, postfix)
                         example['wav'] = waveform
                         example['sample_rate'] = sample_rate
                     else:
