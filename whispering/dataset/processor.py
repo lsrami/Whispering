@@ -24,7 +24,7 @@ from urllib.parse import urlparse
 import torch
 import torchaudio
 
-torchaudio.set_audio_backend("soundfile")
+torchaudio.set_audio_backend("sox_io")
 torchaudio.utils.sox_utils.set_buffer_size(16500)
 
 AUDIO_FORMAT_SETS = set(['flac', 'mp3', 'm4a', 'ogg', 'opus', 'wav', 'wma'])
@@ -71,16 +71,6 @@ def tar_file_and_group(data):
         Returns:
             Iterable[{key, wav, txt, sample_rate}]
     """
-
-    def load_audio(file_obj, postfix):
-        if format == 'wav':
-            waveform, sample_rate = torchaudio.load(file_obj, format=postfix)
-        else:
-            # fix: AttributeError: '_Stream' object has no attribute 'seekable'
-            audio_data = io.BytesIO(file_obj.read())
-            waveform, sample_rate = torchaudio.load(audio_data, format=postfix)
-        return waveform, sample_rate
-
     for sample in data:
         assert 'stream' in sample
         stream = tarfile.open(fileobj=sample['stream'], mode="r|*")
@@ -103,7 +93,8 @@ def tar_file_and_group(data):
                     if postfix == 'txt':
                         example['txt'] = file_obj.read().decode('utf8').strip()
                     elif postfix in AUDIO_FORMAT_SETS:
-                        waveform, sample_rate = load_audio(file_obj, postfix)
+                        # fix: AttributeError: '_Stream' object has no attribute 'seekable'
+                        waveform, sample_rate = torchaudio.load(io.BytesIO(file_obj.read()), format=postfix)
                         example['wav'] = waveform
                         example['sample_rate'] = sample_rate
                     else:
@@ -353,8 +344,6 @@ def data_processor(data, whisper_processor, label_json=False, timestamps=False):
         assert 'txt' in sample
         assert 'sample_rate' in sample
 
-        language = None
-        task = None
         txt = sample['txt']
         waveform = sample['wav'].squeeze()
         sample_rate = sample['sample_rate']
@@ -362,6 +351,9 @@ def data_processor(data, whisper_processor, label_json=False, timestamps=False):
 
         if label_json:
             language, task, txt = _load_json_transcript(txt, timestamps)
+        else:
+            language, task = None, None
+
 
         # Set language and task for each individual entry
         if language:
@@ -382,7 +374,7 @@ def data_processor(data, whisper_processor, label_json=False, timestamps=False):
                 whisper_processor, txt, timestamp_begin, endoftext)
             inputs['labels'] = torch.tensor(labels, dtype=torch.long)
         else:
-            if txt == '<|nospeech|>':
+            if txt == '<|nospeech|>' or len(txt) == 0:
                 inputs = whisper_processor(
                     audio=waveform, sampling_rate=sample_rate, return_attention_mask=False, return_tensors="pt")
                 inputs['labels'] = torch.tensor(

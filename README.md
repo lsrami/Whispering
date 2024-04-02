@@ -53,7 +53,7 @@ git clone https://huggingface.co/openai/whisper-base
 
 注意：官方模型提供的`config.json`中`bos_token_id`和`eos_token_id`的值都为50257，这可能是一个bug
 
-因此[做padding](./whispering/dataset/processor.py#L610)时使用了指向50258的`decoder_start_token_id`去除labels中的第一个token，而不是官方教程中的`bos_token_id`
+因此[做padding](./whispering/dataset/processor.py#L606)时使用了指向50258的`decoder_start_token_id`去除labels中的第一个token，而不是官方教程中的`bos_token_id`
 
 
 <a name="准备数据"></a>
