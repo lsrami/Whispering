@@ -19,6 +19,7 @@ from contextlib import nullcontext
 # if your python version < 3.7 use the below one
 # from contextlib import suppress as nullcontext
 import torch
+import torch.distributed as dist
 from torch.nn.utils import clip_grad_norm_
 from whispering.utils.checkpoint import save_checkpoint, save_checkpoint_best
 from whispering.metrics import load_metric
@@ -157,11 +158,13 @@ class Executor:
         '''
         model.eval()
         rank = train_conf.get('rank', 0)
+        world_size = train_conf.get('world_size', 1)
+        max_keep_checkpoint = train_conf.get('max_keep_checkpoint', 5)
         save_model_dir = train_conf.get('save_model_dir', 'save_model_dir')
         distributed = train_conf['is_distributed']
         forced_decoder_ids = train_conf['forced_decoder_ids']
 
-        num_seen_utts = 1
+        num_seen_utts = 0
         total_loss = 0.0
         with torch.no_grad():
             for batch_idx, batch in enumerate(data_loader):
@@ -171,14 +174,14 @@ class Executor:
                 num_utts = labels.size(0)
                 if num_utts == 0:
                     continue
-                    
+                
                 seq2seq_lm_output = model(input_features=feats, labels=labels)
                 loss = seq2seq_lm_output.loss
 
                 if torch.isfinite(loss):
                     num_seen_utts += num_utts
                     total_loss += loss.item() * num_utts
-                if rank == 0 and batch_idx % (self.log_interval*100) == 0:
+                if rank == 0 and batch_idx % (self.log_interval*10) == 0:
                     log_str = f"CV-stage: epoch: {self.epoch} step: {self.step} batch_idx: {batch_idx} cv_loss: {total_loss / num_seen_utts} num_seen_utts: {num_seen_utts}"
                     self.logger.info(log_str)
 
@@ -201,6 +204,7 @@ class Executor:
                     self.metric.add_batch(references=decoded_labels, predictions=decoded_preds)
 
 
+            num_seen_utts = 1 if num_seen_utts == 0 else num_seen_utts
             self.cv_loss = total_loss / num_seen_utts
 
             maximize_flag = False
@@ -213,7 +217,14 @@ class Executor:
             else:
                 current_metric = self.cv_loss
 
+            result_tensor = torch.tensor([self.cv_loss, current_metric], dtype=torch.float).to(device)
+            if distributed:
+                dist.reduce(result_tensor, dst=0, op=dist.ReduceOp.SUM)
+
             if rank == 0:
+                result_tensor = result_tensor / world_size
+                self.cv_loss, current_metric = result_tensor[0].item(), result_tensor[1].item()
+
                 save_checkpoint_dir = os.path.join(save_model_dir, f"checkpoint_epoch{self.epoch}_step{self.step}")
                 save_checkpoint(
                     model, whisper_processor, save_checkpoint_dir, optimizer, scheduler, {
@@ -225,6 +236,7 @@ class Executor:
                         'train_loss': self.train_loss,
                         'metric_type': self.metric_type,
                         'best_metric': current_metric,
+                        'max_keep_checkpoint': max_keep_checkpoint
                     })
 
                 best_checkpoint_dir = os.path.join(save_model_dir, f"checkpoint_best")

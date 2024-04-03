@@ -24,6 +24,10 @@ from urllib.parse import urlparse
 import torch
 import torchaudio
 
+# Note: In torchaudio >= 2.0, the global backend setting has been deprecated. 
+# You need to specify the backend as 'ffmpeg' when calling a function.
+# https://pytorch.org/audio/main/torchaudio.html#backend-and-dispatcher
+
 torchaudio.set_audio_backend("sox_io")
 torchaudio.utils.sox_utils.set_buffer_size(16500)
 

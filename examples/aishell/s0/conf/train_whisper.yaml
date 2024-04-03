@@ -1,4 +1,10 @@
 dataloader_conf:
+    num_workers: 4
+    pin_memory: True
+    prefetch_factor: 8
+    drop_last: False
+
+cv_dataloader_conf:
     num_workers: 2
     pin_memory: True
     prefetch_factor: 4
@@ -31,7 +37,7 @@ dataset_conf:
         sort_size: 500  # sort_size should be less than shuffle_size
     batch_conf:
         batch_type: 'static' # static or dynamic
-        batch_size: 2
+        batch_size: 16
 
 train_conf:
     use_amp: False
@@ -40,8 +46,8 @@ train_conf:
     accum_grad: 1
     max_epoch: 360
     max_step: 10000
-    log_interval: 10
-    step_save_interval: 20
+    log_interval: 20
+    step_save_interval: 200
     epoch_save_interval: 1
 
 optim: adam

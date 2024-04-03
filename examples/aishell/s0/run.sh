@@ -47,7 +47,7 @@ fi
 
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
     # 多卡训练
-    torchrun --rdzv_backend=c10d  --rdzv_id=whispering --rdzv_endpoint=localhost:0 --nnodes=1 --nproc_per_node=${num_gpus} --max_restarts=3 \
+    torchrun --rdzv_backend=c10d  --rdzv_id=whispering --rdzv_endpoint=localhost:0 --nnodes=1 --nproc_per_node=${num_gpus} \
           whispering/bin/train.py \
           --config $train_config \
           --data_type $data_type \

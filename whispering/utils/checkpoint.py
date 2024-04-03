@@ -65,7 +65,7 @@ def _save_processor(whisper_processor: WhisperProcessor, model_dir: str):
     whisper_processor.save_pretrained(model_dir)
 
 
-def _save_model(model: WhisperForConditionalGeneration, model_dir: str, optimizer, scheduler, infos=None):
+def _save_model(model: WhisperForConditionalGeneration, model_dir: str, optimizer, scheduler, infos):
 
     if isinstance(model, torch.nn.DataParallel):
         model = model.module
@@ -74,8 +74,6 @@ def _save_model(model: WhisperForConditionalGeneration, model_dir: str, optimize
 
     model.save_pretrained(model_dir)
     info_path = os.path.join(model_dir, 'train_infos.yaml')
-    if infos is None:
-        infos = {}
     infos['save_time'] = datetime.datetime.now().strftime('%d/%m/%Y %H:%M:%S')
     with open(info_path, 'w') as fout:
         data = yaml.dump(infos)
@@ -99,17 +97,21 @@ def load_checkpoint(model_dir, language, task, timestamps, device='auto'):
 
 
 def save_checkpoint(model, whisper_processor, model_dir, optimizer, scheduler, infos=None):
-    _save_processor(whisper_processor, model_dir)
-    _save_model(model, model_dir, optimizer, scheduler, infos=infos)
+    if infos is None:
+        infos = {}
 
     root_model_dir, _ = os.path.split(model_dir)
     model_files = glob.glob(os.path.join(root_model_dir, "checkpoint_epoch*"))
 
     model_files.sort(key=os.path.getmtime)
-
-    max_save = 5
-    while len(model_files) > max_save:
+    max_keep_checkpoint = infos.get('max_keep_checkpoint', 5)
+    assert max_keep_checkpoint > 0
+    while len(model_files) > max_keep_checkpoint - 1:
         shutil.rmtree(model_files.pop(0), ignore_errors=True)
+
+    _save_processor(whisper_processor, model_dir)
+    _save_model(model, model_dir, optimizer, scheduler, infos)
+
 
 
 def save_checkpoint_best(current_metric, best_metric, model_dir, best_model_dir, maximize=False):

@@ -61,6 +61,10 @@ def get_args():
                         type=str,
                         choices=['loss', 'cer', 'wer', 'bleu'],
                         help='best model preservation metrics')
+    parser.add_argument('--max_keep_checkpoint',
+                        default=5,
+                        type=int,
+                        help='max keep checkpoint')
     parser.add_argument('--label_json',
                         action='store_true',
                         default=False,
@@ -125,6 +129,8 @@ def main(args):
     cv_dataset_conf['spec_sub'] = False
     cv_dataset_conf['shuffle'] = False
     dataloader_conf = configs.get('dataloader_conf', {})
+    # backward compatibility
+    cv_dataloader_conf = configs.get('cv_dataloader_conf', dataloader_conf)
 
     # Retrieve parameters from the point of last interruption
     if args.resume_train:
@@ -152,6 +158,8 @@ def main(args):
     # Set the training parameters
     save_model_dir = args.save_model_dir
     train_conf['rank'] = rank
+    train_conf['world_size'] = world_size
+    train_conf['max_keep_checkpoint'] = args.max_keep_checkpoint
     train_conf['start_epoch'] = start_epoch
     train_conf['start_batch'] = start_batch
     train_conf['is_distributed'] = distributed
@@ -173,7 +181,7 @@ def main(args):
                          cv_dataset_conf,
                          args.label_json,
                          args.timestamps,
-                         partition=False,
+                         partition=True,
                          whisper_processor=whisper_processor)
 
     train_data_loader = DataLoader(train_dataset,
@@ -190,13 +198,13 @@ def main(args):
 
     cv_data_loader = DataLoader(cv_dataset,
                                 batch_size=None,
-                                num_workers=dataloader_conf.get(
-                                    'num_workers', 4),
-                                pin_memory=dataloader_conf.get(
+                                num_workers=cv_dataloader_conf.get(
+                                    'num_workers', 2),
+                                pin_memory=cv_dataloader_conf.get(
                                     'pin_memory', True),
-                                prefetch_factor=dataloader_conf.get(
-                                    'prefetch_factor', 8),
-                                drop_last=dataloader_conf.get(
+                                prefetch_factor=cv_dataloader_conf.get(
+                                    'prefetch_factor', 4),
+                                drop_last=cv_dataloader_conf.get(
                                     'drop_last', False),
                                 )
 
@@ -269,7 +277,7 @@ def main(args):
         save_checkpoint_dir = os.path.join(
             save_model_dir, f"checkpoint_epoch_init")
         save_checkpoint(model, whisper_processor,
-                        save_checkpoint_dir, optimizer, scheduler, infos=None)
+                        save_checkpoint_dir, optimizer, scheduler, infos={'max_keep_checkpoint': 1})
 
     # Initialize the trainer
     executor = Executor(step=step,
