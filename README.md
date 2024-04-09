@@ -23,11 +23,12 @@ Whispering支持[OpenAI](https://huggingface.co/openai)在hugging face上开源�
 
 <a name="核心功能"></a>
 ## 核心功能
-- 支持一次同时做语音识别、语音翻译、VAD等多个任务，多个语言训练
+- 支持同时做语音识别、语音翻译、VAD等多个任务，多个语言训练
 - 支持raw/shard两种训练数据格式
 - 支持static/dynamic两种训练batch类型
 - 支持spec_aug、shuffle增强等数据增强方式
 - 支持cer、wer、bleu等多个指标选择最优模型
+- 支持交叉熵/标签平滑两种损失函数
 
 
 <a name="环境安装"></a>

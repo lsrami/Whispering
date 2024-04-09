@@ -28,7 +28,7 @@ import torchaudio
 # You need to specify the backend as 'ffmpeg' when calling a function.
 # https://pytorch.org/audio/main/torchaudio.html#backend-and-dispatcher
 
-torchaudio.set_audio_backend("sox_io")
+torchaudio.set_audio_backend("sox_io") # for torchaudio<2.0
 torchaudio.utils.sox_utils.set_buffer_size(16500)
 
 AUDIO_FORMAT_SETS = set(['flac', 'mp3', 'm4a', 'ogg', 'opus', 'wav', 'wma'])
@@ -98,7 +98,8 @@ def tar_file_and_group(data):
                         example['txt'] = file_obj.read().decode('utf8').strip()
                     elif postfix in AUDIO_FORMAT_SETS:
                         # fix: AttributeError: '_Stream' object has no attribute 'seekable'
-                        waveform, sample_rate = torchaudio.load(io.BytesIO(file_obj.read()), format=postfix)
+                        # waveform, sample_rate = torchaudio.load(io.BytesIO(file_obj.read()), format=postfix, backend='ffmpeg') # for torchaudio>=2.0
+                        waveform, sample_rate = torchaudio.load(io.BytesIO(file_obj.read()), format=postfix) # for torchaudio<2.0
                         example['wav'] = waveform
                         example['sample_rate'] = sample_rate
                     else:
@@ -535,42 +536,42 @@ def static_batch(data, batch_size=16):
         yield buf
 
 
-def dynamic_batch(data, max_frames_in_batch=12000):
-    """ Dynamic batch the data until the total frames in batch
-        reach `max_frames_in_batch`
+def dynamic_batch(data, max_tokens_in_batch=3200):
+    """ Dynamic batch the data until the total tokens in batch
+        reach `max_tokens_in_batch`
 
         Args:
             data: Iterable[{key, feat, label}]
-            max_frames_in_batch: max_frames in one batch
+            max_tokens_in_batch: max_tokens in one batch
 
         Returns:
             Iterable[List[{key, feat, label}]]
     """
     buf = []
-    longest_frames = 0
+    longest_tokens = 0
     for sample in data:
-        assert 'feat' in sample
-        assert isinstance(sample['feat'], torch.Tensor)
-        new_sample_frames = sample['feat'].size(0)
-        longest_frames = max(longest_frames, new_sample_frames)
-        frames_after_padding = longest_frames * (len(buf) + 1)
-        if frames_after_padding > max_frames_in_batch:
+        assert 'label' in sample
+        assert isinstance(sample['label'], torch.Tensor)
+        new_sample_tokens = sample['label'].size(0)
+        longest_tokens = max(longest_tokens, new_sample_tokens)
+        tokens_after_padding = longest_tokens * (len(buf) + 1)
+        if tokens_after_padding > max_tokens_in_batch:
             yield buf
             buf = [sample]
-            longest_frames = new_sample_frames
+            longest_tokens = new_sample_tokens
         else:
             buf.append(sample)
     if len(buf) > 0:
         yield buf
 
 
-def batch(data, batch_type='static', batch_size=16, max_frames_in_batch=12000):
+def batch(data, batch_type='static', batch_size=16, max_tokens_in_batch=12000):
     """ Wrapper for static/dynamic batch
     """
     if batch_type == 'static':
         return static_batch(data, batch_size)
     elif batch_type == 'dynamic':
-        return dynamic_batch(data, max_frames_in_batch)
+        return dynamic_batch(data, max_tokens_in_batch)
     else:
         logging.fatal('Unsupported batch type {}'.format(batch_type))
 

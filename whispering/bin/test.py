@@ -84,19 +84,19 @@ def main(args):
         args.task,
         args.timestamps,
         device=device)
-    
+
     forced_decoder_ids = whisper_processor.get_decoder_prompt_ids(
         language=args.language,
         task=args.task,
         no_timestamps=not args.timestamps)
 
-    test_dataset = Dataset(args.data_type,
-                           args.test_data,
-                           dataset_conf,
-                           args.label_json,
-                           args.timestamps,
-                           partition=False,
-                           whisper_processor=whisper_processor)
+    test_dataset, test_one_card_utts = Dataset(args.data_type,
+                                               args.test_data,
+                                               dataset_conf,
+                                               args.label_json,
+                                               args.timestamps,
+                                               partition=False,
+                                               whisper_processor=whisper_processor)
 
     test_data_loader = DataLoader(test_dataset,
                                   batch_size=None,
@@ -114,7 +114,7 @@ def main(args):
     model.eval()
     with torch.cuda.amp.autocast():
         with torch.no_grad():
-            for batch_idx, batch in tqdm(enumerate(test_data_loader), "running"):
+            for batch_idx, batch in tqdm(enumerate(test_data_loader), "running", total=test_one_card_utts):
                 keys, feats, labels = batch
                 feats = feats.to(device)
                 labels = labels.to(device)

@@ -36,8 +36,9 @@ dataset_conf:
     sort_conf:
         sort_size: 500  # sort_size should be less than shuffle_size
     batch_conf:
-        batch_type: 'static' # static or dynamic
-        batch_size: 16
+        batch_type: 'dynamic' # static or dynamic
+        batch_size: 4 # for static
+        max_tokens_in_batch: 80 # for dynamic
 
 train_conf:
     use_amp: False

@@ -41,6 +41,10 @@ def get_args():
                         default='raw',
                         choices=['raw', 'shard'],
                         help='train and cv data type')
+    parser.add_argument('--cv_data_type',
+                        default=None,
+                        choices=['raw', 'shard'],
+                        help='cv data type')
     parser.add_argument('--train_data', required=True, help='train data file')
     parser.add_argument('--cv_data', required=True, help='cv data file')
     parser.add_argument('--save_model_dir', required=True,
@@ -77,6 +81,20 @@ def get_args():
                         action='store_true',
                         default=False,
                         help='Resume training from checkpoint')
+    parser.add_argument('--use_smooth_loss',
+                        action='store_true',
+                        default=False,
+                        help='Use label smoothing loss')
+    parser.add_argument('--cv_partition',
+                        action='store_true',
+                        default=False,
+                        help='Use multiple cards for cross-validation. '
+                        'Note: When cv_data_type is "shard" and the number of audio '
+                        'tracks in a tar package exceeds 500, there is a chance '
+                        'that the process will be interrupted. Solutions: '
+                        '1. Do not set --cv_partition '
+                        '2. Set --cv_data_type=raw '
+                        '3. Reduce the number of audio tracks in the tar')
     parser.add_argument('--override_config',
                         action='append',
                         default=[],
@@ -120,7 +138,7 @@ def main(args):
         language=args.language,
         task=args.task,
         no_timestamps=not args.timestamps)
-    
+
     # Parameters for dataset and dataloader
     train_dataset_conf = configs['dataset_conf']
     cv_dataset_conf = copy.deepcopy(train_dataset_conf)
@@ -131,6 +149,9 @@ def main(args):
     dataloader_conf = configs.get('dataloader_conf', {})
     # backward compatibility
     cv_dataloader_conf = configs.get('cv_dataloader_conf', dataloader_conf)
+    cv_partition = args.cv_partition
+    if args.cv_data_type is None:
+        args.cv_data_type = args.data_type
 
     # Retrieve parameters from the point of last interruption
     if args.resume_train:
@@ -141,9 +162,8 @@ def main(args):
         best_metric = infos.get('best_metric', float('inf'))
     else:
         metric_type = args.metric_type
-        step, start_epoch, start_batch= 0, 0, 0
+        step, start_epoch, start_batch = 0, 0, 0
         best_metric = float('-inf') if metric_type == 'bleu' else float('inf')
-
 
     # Get the training parameters
     train_conf = configs.get('train_conf', {})
@@ -166,23 +186,27 @@ def main(args):
     train_conf['use_amp'] = use_amp
     train_conf['save_model_dir'] = save_model_dir
     train_conf['forced_decoder_ids'] = forced_decoder_ids
+    train_conf['cv_partition'] = cv_partition
 
     # Load the dataset and dataloader
-    train_dataset = Dataset(args.data_type,
-                            args.train_data,
-                            train_dataset_conf,
-                            args.label_json,
-                            args.timestamps,
-                            partition=True,
-                            whisper_processor=whisper_processor)
+    train_dataset, train_one_card_utts = Dataset(args.data_type,
+                                                 args.train_data,
+                                                 train_dataset_conf,
+                                                 args.label_json,
+                                                 args.timestamps,
+                                                 partition=True,
+                                                 whisper_processor=whisper_processor)
 
-    cv_dataset = Dataset(args.data_type,
-                         args.cv_data,
-                         cv_dataset_conf,
-                         args.label_json,
-                         args.timestamps,
-                         partition=True,
-                         whisper_processor=whisper_processor)
+    cv_dataset, cv_one_card_utts = Dataset(args.cv_data_type,
+                                           args.cv_data,
+                                           cv_dataset_conf,
+                                           args.label_json,
+                                           args.timestamps,
+                                           partition=cv_partition,
+                                           whisper_processor=whisper_processor)
+
+    train_conf['train_one_card_utts'] = train_one_card_utts
+    train_conf['cv_one_card_utts'] = cv_one_card_utts
 
     train_data_loader = DataLoader(train_dataset,
                                    batch_size=None,
@@ -287,16 +311,25 @@ def main(args):
                         epoch_save_interval=epoch_save_interval,
                         log_interval=log_interval,
                         metric_type=metric_type,
-                        best_metric=best_metric)
+                        best_metric=best_metric,
+                        use_smooth_loss=args.use_smooth_loss)
     if rank == 0:
-        logger.debug(f"max_step: {max_step} max_epoch: {max_epoch} step_save_interval: {step_save_interval} epoch_save_interval: {epoch_save_interval} log_interval: {log_interval} metric_type: {metric_type} step: {step} start_epoch: {start_epoch} start_batch: {start_batch}")
+        logger.debug(
+            f"max_step: {max_step} max_epoch: {max_epoch} step_save_interval: {step_save_interval} "
+            f"epoch_save_interval: {epoch_save_interval} log_interval: {log_interval} metric_type: {metric_type} "
+            f"step: {step} start_epoch: {start_epoch} start_batch: {start_batch}")
 
     for epoch in range(start_epoch, max_epoch):
         executor.epoch = epoch
         train_dataset.set_epoch(epoch)
         if rank == 0:
             logger.debug(
-                f"Training started for epoch {executor.epoch}, current step: {executor.step}")
+                f"Training started for epoch {executor.epoch}, current step: {executor.step} "
+                f"total_train_utts: {train_one_card_utts*world_size} "
+                f"train_one_card_utts: {train_one_card_utts} "
+                f"total_cv_utts: {cv_one_card_utts*world_size if cv_partition else cv_one_card_utts} "
+                f"cv_one_card_utts: {cv_one_card_utts}")
+
         executor.train(model, optimizer, scheduler, train_data_loader, cv_data_loader, device,
                        writer, train_conf, scaler, whisper_processor)
         if epoch % executor.epoch_save_interval == 0:

@@ -57,12 +57,17 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
           --pretrain_model_dir $pretrain_model_dir \
           --metric_type cer \
           --task transcribe \
-          --language chinese
+          --language chinese \
+          --use_smooth_loss
 
     # 其他训练参数说明
     # --resume_train # 是否从上次中断的地方继续训练，必须把 --pretrain_model_dir 指为上次中断的模型，而不是初始预训练模型
     # --label_json # 文本标签的类型是否为json类型，在动态多语言、多任务训练时必须指定
     # --timestamps # 是否使用带时间戳数据训练，只在指定 --label_json 后才生效
+    # --cv_data_type # 单独为cv dataset指定data_type
+    # --max_keep_checkpoint # 最多保留 N 个checkpoint
+    # --use_smooth_loss # 是否使用标签平滑损失
+    # --cv_partition # 训练过程中是否多卡验证（实验性）
 fi
 
 if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then

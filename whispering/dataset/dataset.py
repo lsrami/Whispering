@@ -137,9 +137,15 @@ def Dataset(data_type,
 
     assert data_type in ['raw', 'shard']
     lists = read_lists(data_list_file)
+    world_size = dist.get_world_size() if dist.is_initialized() else 1
+    one_card_utts = len(lists) // world_size if partition else len(lists)
+    one_card_utts = one_card_utts if one_card_utts else 1
+
     shuffle = conf.get('shuffle', True)
     dataset = DataList(lists, shuffle=shuffle, partition=partition)
     if data_type == 'shard':
+        one_tar_nums = 1000  # Suppose there are 1000 tones in a tar
+        one_card_utts *= one_tar_nums
         dataset = Processor(dataset, processor.url_opener)
         dataset = Processor(dataset, processor.tar_file_and_group)
     else:
@@ -180,4 +186,4 @@ def Dataset(data_type,
     batch_conf = conf.get('batch_conf', {})
     dataset = Processor(dataset, processor.batch, **batch_conf)
     dataset = Processor(dataset, processor.padding, whisper_processor)
-    return dataset
+    return dataset, one_card_utts

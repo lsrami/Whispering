@@ -1,7 +1,7 @@
 dataloader_conf:
     num_workers: 4
     pin_memory: True
-    prefetch_factor: 4
+    prefetch_factor: 8
     drop_last: False
 
 dataset_conf:
@@ -30,5 +30,6 @@ dataset_conf:
     sort_conf:
         sort_size: 500  # sort_size should be less than shuffle_size
     batch_conf:
-        batch_type: 'static' # static or dynamic
-        batch_size: 8
+        batch_type: 'dynamic' # static or dynamic
+        batch_size: 4 # for static
+        max_tokens_in_batch: 80 # for dynamic
