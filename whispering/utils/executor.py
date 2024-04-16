@@ -88,7 +88,12 @@ class Executor:
                     break
 
                 if self.epoch == start_epoch and batch_idx < start_batch:
+                    if batch_idx % 1000 == 0:
+                        self.logger.debug(
+                            f"Skipping this batch {batch_idx}/{start_batch} "
+                            f"progress_resume_training: {(batch_idx/start_batch)*100:.8f}%.")
                     continue
+
                 keys, feats, labels = batch
                 feats = feats.to(device)
                 labels = labels.to(device)
@@ -128,12 +133,6 @@ class Executor:
                 num_seen_utts += num_utts
 
                 if batch_idx % accum_grad == 0:
-                    if rank == 0 and writer is not None:
-                        writer.add_scalar(
-                            'loss/train', self.train_loss, self.step)
-                        writer.add_scalar('batch/batch_size',
-                                          num_utts, self.step)
-                        writer.add_scalar('lr/lr', self.lr, self.step)
                     # Use mixed precision training
                     if use_amp:
                         scaler.unscale_(optimizer)
@@ -157,6 +156,12 @@ class Executor:
 
                 # Record loss once every N log_intervals
                 if rank == 0 and self.step % self.log_interval == 0:
+                    writer.add_scalar(
+                        'loss/train', self.train_loss, self.step)
+                    writer.add_scalar('batch/batch_size',
+                                        num_utts, self.step)
+                    writer.add_scalar('lr/lr', self.lr, self.step)
+
                     progress_current_epoch = num_seen_utts / train_one_card_utts
                     progress_max_epoch = (self.epoch + progress_current_epoch ) / self.max_epoch
 
@@ -185,7 +190,6 @@ class Executor:
         max_keep_checkpoint = train_conf.get('max_keep_checkpoint', 5)
         save_model_dir = train_conf.get('save_model_dir', 'save_model_dir')
         distributed = train_conf['is_distributed']
-        forced_decoder_ids = train_conf['forced_decoder_ids']
         cv_one_card_utts = train_conf['cv_one_card_utts']
         cv_partition = train_conf['cv_partition']
 
@@ -221,12 +225,10 @@ class Executor:
                     labels = torch.where(
                         labels != -100, labels, whisper_processor.tokenizer.pad_token_id)
 
-                    # Note: In multi-language and multi-task hybrid training
-                    # it is only verified on the specified task due to the limitation of forced_decoder_ids
                     model_instance = model.module if distributed else model
-                    generated_preds = model_instance.generate(inputs=feats,
-                                                              forced_decoder_ids=forced_decoder_ids,
-                                                              max_new_tokens=448,
+                    generated_preds = model_instance.generate(input_features=feats,
+                                                              decoder_input_ids=labels[:, :3],
+                                                              max_new_tokens=443,
                                                               return_timestamps=False)
 
                     decoded_labels = whisper_processor.batch_decode(

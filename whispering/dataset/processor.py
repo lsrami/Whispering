@@ -24,11 +24,11 @@ from urllib.parse import urlparse
 import torch
 import torchaudio
 
-# Note: In torchaudio >= 2.0, the global backend setting has been deprecated. 
+# Note: In torchaudio > 2.0, the global backend setting has been deprecated. 
 # You need to specify the backend as 'ffmpeg' when calling a function.
 # https://pytorch.org/audio/main/torchaudio.html#backend-and-dispatcher
 
-torchaudio.set_audio_backend("sox_io") # for torchaudio<2.0
+torchaudio.set_audio_backend("sox_io") # for torchaudio<2.1
 torchaudio.utils.sox_utils.set_buffer_size(16500)
 
 AUDIO_FORMAT_SETS = set(['flac', 'mp3', 'm4a', 'ogg', 'opus', 'wav', 'wma'])
@@ -98,8 +98,8 @@ def tar_file_and_group(data):
                         example['txt'] = file_obj.read().decode('utf8').strip()
                     elif postfix in AUDIO_FORMAT_SETS:
                         # fix: AttributeError: '_Stream' object has no attribute 'seekable'
-                        # waveform, sample_rate = torchaudio.load(io.BytesIO(file_obj.read()), format=postfix, backend='ffmpeg') # for torchaudio>=2.0
-                        waveform, sample_rate = torchaudio.load(io.BytesIO(file_obj.read()), format=postfix) # for torchaudio<2.0
+                        # waveform, sample_rate = torchaudio.load(io.BytesIO(file_obj.read()), format=postfix, backend='ffmpeg') # for torchaudio>2.0
+                        waveform, sample_rate = torchaudio.load(io.BytesIO(file_obj.read()), format=postfix) # for torchaudio<2.1
                         example['wav'] = waveform
                         example['sample_rate'] = sample_rate
                     else:

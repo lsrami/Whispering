@@ -2,17 +2,21 @@
 
 . ./path.sh || exit 1;
 
-export NCCL_SOCKET_IFNAME=eno1
-export NCCL_DEBUG=DEBUG
-export NCCL_IB_DISABLE=1
-export NCCL_SHM_DISABLE=1
-export NCCL_P2P_LEVEL=0
+export NCCL_DEBUG=INFO # 日志等级
+export NCCL_SOCKET_IFNAME=eno1 # socket网卡名称，需要改为实际网卡
+export NCCL_P2P_DISABLE=0 # 使用NVlink或者IB时，进行gpu直接通信，默认0
+export NCCL_IB_DISABLE=0 # 是否禁用IB传输，默认0
+export NCCL_IB_HCA=mlx5 # IB通信时必须设置的IB网卡名，mlx5_0:1 使用卡mlx5_0的端口 1
+export NCCL_SHM_DISABLE=0 # 是否禁用共享内存传输，默认0
+
+# export NCCL_NET_GDR_READ=1 # 直接从GPU内存读取绕过cpu内存，默认0
+# export NCCL_P2P_LEVEL=1 # 建议不要设置，默认自动选择
 
 export CUDA_VISIBLE_DEVICES="0,1"
 export OMP_NUM_THREADS=1
 num_gpus=$(echo "${CUDA_VISIBLE_DEVICES}" | awk -F',' '{print NF}')
 
-stage=1 
+stage=1
 stop_stage=1
 
 data_type=shard # raw/shard

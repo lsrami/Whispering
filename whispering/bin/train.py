@@ -133,12 +133,6 @@ def main(args):
     # Randomly initialize the model
     if False:
         model.init_weights()
-    # set decoder ids
-    forced_decoder_ids = whisper_processor.get_decoder_prompt_ids(
-        language=args.language,
-        task=args.task,
-        no_timestamps=not args.timestamps)
-
     # Parameters for dataset and dataloader
     train_dataset_conf = configs['dataset_conf']
     cv_dataset_conf = copy.deepcopy(train_dataset_conf)
@@ -185,7 +179,6 @@ def main(args):
     train_conf['is_distributed'] = distributed
     train_conf['use_amp'] = use_amp
     train_conf['save_model_dir'] = save_model_dir
-    train_conf['forced_decoder_ids'] = forced_decoder_ids
     train_conf['cv_partition'] = cv_partition
 
     # Load the dataset and dataloader
@@ -243,7 +236,7 @@ def main(args):
         logger.info(f"save finetune model to: {save_model_dir}")
 
         os.makedirs(save_model_dir, exist_ok=True)
-        writer = SummaryWriter(os.path.join(save_model_dir, 'tensorboard'))
+        writer = SummaryWriter(os.path.join(save_model_dir, 'tensorboard', time_string))
 
         saved_config_path = os.path.join(save_model_dir, 'train_init.yaml')
         with open(saved_config_path, 'w') as fout:
@@ -324,7 +317,7 @@ def main(args):
         train_dataset.set_epoch(epoch)
         if rank == 0:
             logger.debug(
-                f"Training started for epoch {executor.epoch}, current step: {executor.step} "
+                f"Training begin for epoch {executor.epoch}, current step: {executor.step} "
                 f"total_train_utts: {train_one_card_utts*world_size} "
                 f"train_one_card_utts: {train_one_card_utts} "
                 f"total_cv_utts: {cv_one_card_utts*world_size if cv_partition else cv_one_card_utts} "

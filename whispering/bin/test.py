@@ -122,8 +122,8 @@ def main(args):
                                      whisper_processor.tokenizer.pad_token_id)
 
                 generated_preds = model.generate(inputs=feats,
-                                                 forced_decoder_ids=forced_decoder_ids,
-                                                 max_new_tokens=448,
+                                                 decoder_input_ids=labels[:, :3],
+                                                 max_new_tokens=443,
                                                  return_timestamps=args.timestamps)
 
                 decoded_labels = whisper_processor.batch_decode(

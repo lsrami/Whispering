@@ -51,9 +51,9 @@ train_conf:
     step_save_interval: 200
     epoch_save_interval: 1
 
-optim: adam
+optim: adam # adam or adamw
 optim_conf:
     lr: 0.001
-scheduler: warmuplr     # pytorch v1.1.0+ required
+scheduler: warmuplr     # warmuplr or NoamHoldAnnealing
 scheduler_conf:
     warmup_steps: 25000
