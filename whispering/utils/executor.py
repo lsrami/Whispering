@@ -88,7 +88,7 @@ class Executor:
                     break
 
                 if self.epoch == start_epoch and batch_idx < start_batch:
-                    if batch_idx % 1000 == 0:
+                    if rank == 0 and batch_idx % 1000 == 0:
                         self.logger.debug(
                             f"Skipping this batch {batch_idx}/{start_batch} "
                             f"progress_resume_training: {(batch_idx/start_batch)*100:.8f}%.")

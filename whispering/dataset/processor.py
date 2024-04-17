@@ -161,7 +161,7 @@ def parse_raw(data):
 def filter(data,
            max_length=30,
            min_length=1,
-           token_max_length=448,
+           token_max_length=443,
            token_min_length=1,
            min_output_input_ratio=0.003,
            max_output_input_ratio=1):
@@ -536,7 +536,7 @@ def static_batch(data, batch_size=16):
         yield buf
 
 
-def dynamic_batch(data, max_tokens_in_batch=3200):
+def dynamic_batch(data, max_tokens_in_batch=320):
     """ Dynamic batch the data until the total tokens in batch
         reach `max_tokens_in_batch`
 
@@ -553,6 +553,8 @@ def dynamic_batch(data, max_tokens_in_batch=3200):
         assert 'label' in sample
         assert isinstance(sample['label'], torch.Tensor)
         new_sample_tokens = sample['label'].size(0)
+        if new_sample_tokens > max_tokens_in_batch:
+            continue
         longest_tokens = max(longest_tokens, new_sample_tokens)
         tokens_after_padding = longest_tokens * (len(buf) + 1)
         if tokens_after_padding > max_tokens_in_batch:

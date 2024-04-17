@@ -1,21 +1,21 @@
 dataloader_conf:
-    num_workers: 4
+    num_workers: 8
     pin_memory: True
-    prefetch_factor: 8
+    prefetch_factor: 12
     drop_last: False
 
 cv_dataloader_conf:
-    num_workers: 2
+    num_workers: 4
     pin_memory: True
-    prefetch_factor: 4
+    prefetch_factor: 8
     drop_last: False
 
 dataset_conf:
     filter_conf:
         max_length: 30 # 音频最大长度/s
         min_length: 0.1
-        token_max_length: 448 # token最大长度
-        token_min_length: 1
+        token_max_length: 443 # token最大长度
+        token_min_length: 5
     resample_conf:
         resample_rate: 16000
     speed_perturb: true
@@ -38,7 +38,7 @@ dataset_conf:
     batch_conf:
         batch_type: 'dynamic' # static or dynamic
         batch_size: 4 # for static
-        max_tokens_in_batch: 80 # for dynamic
+        max_tokens_in_batch: 320 # for dynamic
 
 train_conf:
     use_amp: False
@@ -46,9 +46,9 @@ train_conf:
     grad_clip: 5
     accum_grad: 1
     max_epoch: 360
-    max_step: 10000
-    log_interval: 20
-    step_save_interval: 200
+    max_step: 100000
+    log_interval: 50
+    step_save_interval: 5000
     epoch_save_interval: 1
 
 optim: adam # adam or adamw
