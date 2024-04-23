@@ -87,6 +87,17 @@ class Executor:
                     self.should_stop = True
                     break
 
+                if batch_idx != 0:
+                    try:
+                        pass
+                        # dist.monitored_barrier() # todo: only in gloo backend
+                    except RuntimeError as e:
+                        self.logger.debug(
+                            f"Detected uneven workload distribution: {e}\n"
+                            f"Break current worker to manually join all workers, " 
+                            f"world_size {world_size}, current rank {rank} ")
+                        break
+
                 if self.epoch == start_epoch and batch_idx < start_batch:
                     if rank == 0 and batch_idx % 1000 == 0:
                         self.logger.debug(
@@ -173,13 +184,17 @@ class Executor:
                         f"progress_max_step: {(self.step/self.max_step)*100:.8f}%")
 
                 # Validate and save the model once every N save_step_intervals
-                if self.step % self.step_save_interval == 0:
+                if self.step_save_interval and self.step % self.step_save_interval == 0:
+                    dist.barrier()
                     self.cv(model, cv_data_loader, device, train_conf,
                             whisper_processor, optimizer, scheduler)
                     if rank == 0:
                         writer.add_scalar(
                             f'best_metric/{self.metric_type}', self.best_metric, self.step)
                         writer.add_scalar('loss/cv', self.cv_loss, self.step)
+                    model.train()
+                    dist.barrier()
+
 
     def cv(self, model, data_loader, device, train_conf, whisper_processor, optimizer, scheduler):
         ''' Cross validation on

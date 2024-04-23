@@ -23,6 +23,7 @@ import torch
 import torch.distributed as dist
 import torch.optim as optim
 import yaml
+from datetime import timedelta
 from tensorboardX import SummaryWriter
 from torch.utils.data import DataLoader
 
@@ -77,6 +78,14 @@ def get_args():
                         action='store_true',
                         default=False,
                         help='Whether to use timestamp training')
+    parser.add_argument('--timeout',
+                        default=180,
+                        type=int,
+                        help='Dist timeout (in minutes)')
+    parser.add_argument('--one_tar_nums',
+                        default=1000,
+                        type=int,
+                        help='Data entries number in a tar')
     parser.add_argument('--resume_train',
                         action='store_true',
                         default=False,
@@ -121,7 +130,7 @@ def main(args):
         local_rank = int(os.environ.get('LOCAL_RANK'))
         torch.cuda.set_device(local_rank)  # 如果使用手动多进程，请注释
         dist.init_process_group(
-            backend='nccl', init_method='env://', world_size=world_size, rank=rank)
+            backend='nccl', init_method='env://', world_size=world_size, rank=rank, timeout=timedelta(minutes=args.timeout))
 
     # Load model and tokenizer
     model, whisper_processor, infos, optimizer_state_dict, scheduler_state_dict = load_checkpoint(
@@ -188,7 +197,8 @@ def main(args):
                                                  args.label_json,
                                                  args.timestamps,
                                                  partition=True,
-                                                 whisper_processor=whisper_processor)
+                                                 whisper_processor=whisper_processor,
+                                                 one_tar_nums=args.one_tar_nums)
 
     cv_dataset, cv_one_card_utts = Dataset(args.cv_data_type,
                                            args.cv_data,
@@ -196,7 +206,8 @@ def main(args):
                                            args.label_json,
                                            args.timestamps,
                                            partition=cv_partition,
-                                           whisper_processor=whisper_processor)
+                                           whisper_processor=whisper_processor,
+                                           one_tar_nums=args.one_tar_nums)
 
     train_conf['train_one_card_utts'] = train_one_card_utts
     train_conf['cv_one_card_utts'] = cv_one_card_utts
@@ -322,12 +333,18 @@ def main(args):
                 f"train_one_card_utts: {train_one_card_utts} "
                 f"total_cv_utts: {cv_one_card_utts*world_size if cv_partition else cv_one_card_utts} "
                 f"cv_one_card_utts: {cv_one_card_utts}")
+        try:
+            dist.barrier()
+            executor.train(model, optimizer, scheduler, train_data_loader, cv_data_loader, device,
+                        writer, train_conf, scaler, whisper_processor)
+            dist.barrier()
+            if executor.epoch_save_interval and epoch + 1 % executor.epoch_save_interval == 0:
+                executor.cv(model, cv_data_loader, device,
+                            train_conf, whisper_processor, optimizer, scheduler)
+        except Exception as e:
+            logger.error(
+                f"The epoch {executor.epoch} training error: {e}, Skip subsequent training process")
 
-        executor.train(model, optimizer, scheduler, train_data_loader, cv_data_loader, device,
-                       writer, train_conf, scaler, whisper_processor)
-        if epoch % executor.epoch_save_interval == 0:
-            executor.cv(model, cv_data_loader, device,
-                        train_conf, whisper_processor, optimizer, scheduler)
         if executor.should_stop:
             break
 

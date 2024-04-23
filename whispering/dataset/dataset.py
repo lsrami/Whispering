@@ -14,7 +14,7 @@
 # limitations under the License.
 
 import random
-
+import logging
 import torch
 import torch.distributed as dist
 from torch.utils.data import IterableDataset
@@ -87,10 +87,6 @@ class DistributedSampler:
                 List: data list after sample
         """
         data = list(range(len(data)))
-        # TODO(Binbin Zhang): fix this
-        # We can not handle uneven data for CV on DDP, so we don't
-        # sample data by rank, that means every GPU gets the same
-        # and all the CV data
         if self.partition:
             if self.shuffle:
                 random.Random(self.epoch).shuffle(data)
@@ -116,6 +112,44 @@ class DataList(IterableDataset):
             data.update(sampler_info)
             yield data
 
+def align_data_list(lists, partition, data_type, one_tar_nums):
+    world_size = dist.get_world_size() if dist.is_initialized() else 1
+    lists_length = len(lists)
+
+    if world_size != 1:
+        remainder = lists_length % world_size
+        if lists_length < world_size:
+            repeat_times = world_size // lists_length
+            extra_elements = world_size % lists_length
+            lists = lists * repeat_times + lists[:extra_elements]
+            logging.warning(
+                f"Align_type: 1 original lists_length: {lists_length} world_size: {world_size} current lists_length: {len(lists)}\n"
+                f"Data list is smaller than total devices, automatically padded: {world_size-lists_length} items")
+        elif remainder != 0:
+            if remainder < world_size / 3:
+                lists = lists[:lists_length - remainder]
+                logging.warning(
+                    f"Align_type: 2 original lists_length: {lists_length} world_size: {world_size} current lists_length: {len(lists)}\n"
+                    f"Data list is not a multiple of total devices, automatically trimmed: {remainder} items")
+            else:
+                extra_elements = world_size - remainder
+                lists += lists[:extra_elements]
+                logging.warning(
+                    f"Align_type: 3 original lists_length: {lists_length} world_size: {world_size} current lists_length: {len(lists)}\n"
+                    f"Data list is not a multiple of total devices, automatically padded: {extra_elements} items")
+
+    if len(lists) < world_size:
+        log_str = "Data list is too short, cannot guarantee at least one item per device"
+        logging.error(log_str)
+        raise ValueError(log_str)
+
+
+    one_card_utts = len(lists) // world_size if partition else len(lists)
+    one_card_utts = one_card_utts if one_card_utts else 1
+    if data_type == 'shard':
+        one_card_utts *= one_tar_nums
+
+    return lists, one_card_utts
 
 def Dataset(data_type,
             data_list_file,
@@ -123,7 +157,8 @@ def Dataset(data_type,
             label_json,
             timestamps,
             partition=True,
-            whisper_processor=None):
+            whisper_processor=None,
+            one_tar_nums=1000):
     """ Construct dataset from arguments
 
         We have two shuffle stage in the Dataset. The first is global
@@ -137,15 +172,12 @@ def Dataset(data_type,
 
     assert data_type in ['raw', 'shard']
     lists = read_lists(data_list_file)
-    world_size = dist.get_world_size() if dist.is_initialized() else 1
-    one_card_utts = len(lists) // world_size if partition else len(lists)
-    one_card_utts = one_card_utts if one_card_utts else 1
+
+    lists, one_card_utts = align_data_list(lists, partition, data_type, one_tar_nums)
 
     shuffle = conf.get('shuffle', True)
     dataset = DataList(lists, shuffle=shuffle, partition=partition)
     if data_type == 'shard':
-        one_tar_nums = 1000  # Suppose there are 1000 tones in a tar
-        one_card_utts *= one_tar_nums
         dataset = Processor(dataset, processor.url_opener)
         dataset = Processor(dataset, processor.tar_file_and_group)
     else:
