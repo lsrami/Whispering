@@ -189,6 +189,7 @@ def main(args):
     train_conf['use_amp'] = use_amp
     train_conf['save_model_dir'] = save_model_dir
     train_conf['cv_partition'] = cv_partition
+    train_conf['timeout'] = args.timeout
 
     # Load the dataset and dataloader
     train_dataset, train_one_card_utts = Dataset(args.data_type,
@@ -333,17 +334,11 @@ def main(args):
                 f"train_one_card_utts: {train_one_card_utts} "
                 f"total_cv_utts: {cv_one_card_utts*world_size if cv_partition else cv_one_card_utts} "
                 f"cv_one_card_utts: {cv_one_card_utts}")
-        try:
-            dist.barrier()
-            executor.train(model, optimizer, scheduler, train_data_loader, cv_data_loader, device,
-                        writer, train_conf, scaler, whisper_processor)
-            dist.barrier()
-            if executor.epoch_save_interval and epoch + 1 % executor.epoch_save_interval == 0:
-                executor.cv(model, cv_data_loader, device,
-                            train_conf, whisper_processor, optimizer, scheduler)
-        except Exception as e:
-            logger.error(
-                f"The epoch {executor.epoch} training error: {e}, Skip subsequent training process")
+        executor.train(model, optimizer, scheduler, train_data_loader, cv_data_loader, device,
+                    writer, train_conf, scaler, whisper_processor)
+        if executor.epoch_save_interval and epoch + 1 % executor.epoch_save_interval == 0:
+            executor.cv(model, cv_data_loader, device,
+                        train_conf, whisper_processor, optimizer, scheduler)
 
         if executor.should_stop:
             break

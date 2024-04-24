@@ -15,6 +15,7 @@
 import os
 import logging
 from contextlib import nullcontext
+from datetime import timedelta
 
 # if your python version < 3.7 use the below one
 # from contextlib import suppress as nullcontext
@@ -54,6 +55,26 @@ class Executor:
         self.metric = load_metric(self.metric_type)
         self.use_smooth_loss = use_smooth_loss
 
+    def whispering_join(self, group_join, batch_idx):
+        world_size = int(os.environ.get('WORLD_SIZE', 1))
+        local_rank = int(os.environ.get('LOCAL_RANK', 0))
+        rank = int(os.environ.get('RANK', 0))
+
+        if batch_idx == 0:
+            return False
+
+        try:
+            dist.monitored_barrier(group=group_join,
+                                timeout=group_join.options._timeout)
+        except RuntimeError as e:
+            logging.info("Detected uneven workload distribution: {}\n".format(e) +
+                        "Break current worker to manually join all workers, " +
+                        "world_size {}, current rank {}, current local_rank {}\n".
+                        format(world_size, rank, local_rank))
+            return True
+
+        return False
+
     def train(self, model, optimizer, scheduler, train_data_loader, cv_data_loader, device,
               writer, train_conf, scaler, whisper_processor):
         ''' Train one epoch
@@ -65,9 +86,19 @@ class Executor:
         start_epoch = train_conf.get('start_epoch', 0)
         start_batch = train_conf.get('start_batch', 0)
         train_one_card_utts = train_conf['train_one_card_utts']
-
         is_distributed = train_conf.get('is_distributed', True)
         use_amp = train_conf.get('use_amp', False)
+        timeout = train_conf.get('timeout', 60)
+
+        dist.barrier()
+        self.logger.debug(f"Rank {rank} enter Train function")
+
+        monitor_flag = True # 建议设为False
+        if monitor_flag:
+            # Note: monitoring process
+            group_join = dist.new_group(
+                backend="gloo", timeout=timedelta(minutes=timeout))
+
         if use_amp:
             self.logger.info('using accumulate grad, new batch size is {} times'
                              ' larger than before'.format(accum_grad))
@@ -87,15 +118,8 @@ class Executor:
                     self.should_stop = True
                     break
 
-                if batch_idx != 0:
-                    try:
-                        pass
-                        # dist.monitored_barrier() # todo: only in gloo backend
-                    except RuntimeError as e:
-                        self.logger.debug(
-                            f"Detected uneven workload distribution: {e}\n"
-                            f"Break current worker to manually join all workers, " 
-                            f"world_size {world_size}, current rank {rank} ")
+                if monitor_flag:
+                    if self.whispering_join(group_join, batch_idx):
                         break
 
                 if self.epoch == start_epoch and batch_idx < start_batch:
@@ -185,7 +209,6 @@ class Executor:
 
                 # Validate and save the model once every N save_step_intervals
                 if self.step_save_interval and self.step % self.step_save_interval == 0:
-                    dist.barrier()
                     self.cv(model, cv_data_loader, device, train_conf,
                             whisper_processor, optimizer, scheduler)
                     if rank == 0:
@@ -193,7 +216,12 @@ class Executor:
                             f'best_metric/{self.metric_type}', self.best_metric, self.step)
                         writer.add_scalar('loss/cv', self.cv_loss, self.step)
                     model.train()
-                    dist.barrier()
+                    
+        if monitor_flag:
+            dist.destroy_process_group(group_join)
+
+        dist.barrier()
+        self.logger.debug(f"Rank {rank} quit Train function")
 
 
     def cv(self, model, data_loader, device, train_conf, whisper_processor, optimizer, scheduler):
@@ -204,9 +232,20 @@ class Executor:
         world_size = train_conf.get('world_size', 1)
         max_keep_checkpoint = train_conf.get('max_keep_checkpoint', 5)
         save_model_dir = train_conf.get('save_model_dir', 'save_model_dir')
-        distributed = train_conf['is_distributed']
+        is_distributed = train_conf.get('is_distributed', False)
+        cv_partition = train_conf.get('cv_partition', False)
         cv_one_card_utts = train_conf['cv_one_card_utts']
-        cv_partition = train_conf['cv_partition']
+        timeout = train_conf.get('timeout', 60)
+
+
+        dist.barrier()
+        self.logger.debug(f"Rank {rank} enter CV function")
+
+        monitor_flag = True
+        if monitor_flag:
+            # Note: monitoring process
+            group_join = dist.new_group(
+                backend="gloo", timeout=timedelta(minutes=timeout))
 
         num_seen_utts = 0
         total_loss = 0.0
@@ -218,6 +257,10 @@ class Executor:
                 num_utts = labels.size(0)
                 if num_utts == 0:
                     continue
+
+                if monitor_flag:
+                    if self.whispering_join(group_join, batch_idx):
+                            break
 
                 seq2seq_lm_output = model(input_features=feats, labels=labels)
                 if self.use_smooth_loss:
@@ -240,7 +283,7 @@ class Executor:
                     labels = torch.where(
                         labels != -100, labels, whisper_processor.tokenizer.pad_token_id)
 
-                    model_instance = model.module if distributed else model
+                    model_instance = model.module if is_distributed else model
                     generated_preds = model_instance.generate(input_features=feats,
                                                               decoder_input_ids=labels[:, :3],
                                                               max_new_tokens=443,
@@ -254,6 +297,7 @@ class Executor:
                     self.metric.add_batch(
                         references=decoded_labels, predictions=decoded_preds)
 
+            dist.barrier()
             num_seen_utts = 1 if num_seen_utts == 0 else num_seen_utts
             self.cv_loss = total_loss / num_seen_utts
 
@@ -269,7 +313,7 @@ class Executor:
 
             result_tensor = torch.tensor(
                 [self.cv_loss, current_metric], dtype=torch.float).to(device)
-            if cv_partition and distributed:
+            if cv_partition and is_distributed:
                 dist.all_reduce(result_tensor, op=dist.ReduceOp.SUM)
                 result_tensor = result_tensor / world_size
 
@@ -303,3 +347,9 @@ class Executor:
                     f"cv_loss: {self.cv_loss:.6f} best_checkpoint: {self.best_checkpoint_name} "
                     f"metric_type: {self.metric_type} current_metric: {current_metric:.6f} "
                     f"best_metric: {self.best_metric} current_is_best: {is_best}")
+
+        if monitor_flag:
+            dist.destroy_process_group(group_join)
+
+        dist.barrier()
+        self.logger.debug(f"Rank {rank} quit CV function")
