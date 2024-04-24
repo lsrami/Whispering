@@ -113,6 +113,7 @@ class DataList(IterableDataset):
 
 def align_data_list(lists, partition, data_type, one_tar_nums):
     world_size = dist.get_world_size() if dist.is_initialized() else 1
+    rank = dist.get_rank() if dist.is_initialized() else 0
     lists_length = len(lists)
 
     if partition and world_size != 1:
@@ -121,21 +122,24 @@ def align_data_list(lists, partition, data_type, one_tar_nums):
             repeat_times = world_size // lists_length
             extra_elements = world_size % lists_length
             lists = lists * repeat_times + lists[:extra_elements]
-            print(
-                f"Align_type: 1 original lists_length: {lists_length} world_size: {world_size} current lists_length: {len(lists)}\n"
-                f"Data list is smaller than total devices, automatically padded: {world_size-lists_length} items")
+            if rank == 0:
+                print(
+                    f"Align_type: 1 original lists_length: {lists_length} world_size: {world_size} current lists_length: {len(lists)}\n"
+                    f"Data list is smaller than total devices, automatically padded: {world_size-lists_length} items")
         elif remainder != 0:
             if remainder < world_size / 3:
                 lists = lists[:lists_length - remainder]
-                print(
-                    f"Align_type: 2 original lists_length: {lists_length} world_size: {world_size} current lists_length: {len(lists)}\n"
-                    f"Data list is not a multiple of total devices, automatically trimmed: {remainder} items")
+                if rank == 0:
+                    print(
+                        f"Align_type: 2 original lists_length: {lists_length} world_size: {world_size} current lists_length: {len(lists)}\n"
+                        f"Data list is not a multiple of total devices, automatically trimmed: {remainder} items")
             else:
                 extra_elements = world_size - remainder
                 lists += lists[:extra_elements]
-                print(
-                    f"Align_type: 3 original lists_length: {lists_length} world_size: {world_size} current lists_length: {len(lists)}\n"
-                    f"Data list is not a multiple of total devices, automatically padded: {extra_elements} items")
+                if rank == 0:
+                    print(
+                        f"Align_type: 3 original lists_length: {lists_length} world_size: {world_size} current lists_length: {len(lists)}\n"
+                        f"Data list is not a multiple of total devices, automatically padded: {extra_elements} items")
 
         if len(lists) < world_size:
             log_str = "Data list is too short, cannot guarantee at least one item per device"

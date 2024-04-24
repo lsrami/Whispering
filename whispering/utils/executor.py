@@ -56,10 +56,6 @@ class Executor:
         self.use_smooth_loss = use_smooth_loss
 
     def whispering_join(self, group_join, batch_idx):
-        world_size = int(os.environ.get('WORLD_SIZE', 1))
-        local_rank = int(os.environ.get('LOCAL_RANK', 0))
-        rank = int(os.environ.get('RANK', 0))
-
         if batch_idx == 0:
             return False
 
@@ -67,7 +63,10 @@ class Executor:
             dist.monitored_barrier(group=group_join,
                                 timeout=group_join.options._timeout)
         except RuntimeError as e:
-            logging.info("Detected uneven workload distribution: {}\n".format(e) +
+            rank = dist.get_rank(group=group_join)
+            local_rank = int(os.environ.get('LOCAL_RANK', 0))
+            world_size = dist.get_world_size(group=group_join)
+            self.logger.warning("Detected uneven workload distribution: {}\n".format(e) +
                         "Break current worker to manually join all workers, " +
                         "world_size {}, current rank {}, current local_rank {}\n".
                         format(world_size, rank, local_rank))
@@ -90,10 +89,11 @@ class Executor:
         use_amp = train_conf.get('use_amp', False)
         timeout = train_conf.get('timeout', 60)
 
-        dist.barrier()
-        self.logger.debug(f"Rank {rank} enter Train function")
+        dist.barrier() if is_distributed else None
+        self.logger.debug(f"Rank {rank} enter Train function, current step {self.step}")
 
-        monitor_flag = True # 建议设为False
+        monitor_flag = False # 建议设为False
+        monitor_flag = monitor_flag if is_distributed else False
         if monitor_flag:
             # Note: monitoring process
             group_join = dist.new_group(
@@ -209,6 +209,7 @@ class Executor:
 
                 # Validate and save the model once every N save_step_intervals
                 if self.step_save_interval and self.step % self.step_save_interval == 0:
+                    dist.barrier() if is_distributed else None
                     self.cv(model, cv_data_loader, device, train_conf,
                             whisper_processor, optimizer, scheduler)
                     if rank == 0:
@@ -220,8 +221,8 @@ class Executor:
         if monitor_flag:
             dist.destroy_process_group(group_join)
 
-        dist.barrier()
-        self.logger.debug(f"Rank {rank} quit Train function")
+        dist.barrier() if is_distributed else None
+        self.logger.debug(f"Rank {rank} quit Train function, current step {self.step}")
 
 
     def cv(self, model, data_loader, device, train_conf, whisper_processor, optimizer, scheduler):
@@ -238,10 +239,11 @@ class Executor:
         timeout = train_conf.get('timeout', 60)
 
 
-        dist.barrier()
-        self.logger.debug(f"Rank {rank} enter CV function")
+        dist.barrier() if is_distributed else None
+        self.logger.debug(f"Rank {rank} enter CV function, current step {self.step}")
 
         monitor_flag = True
+        monitor_flag = monitor_flag if is_distributed else False
         if monitor_flag:
             # Note: monitoring process
             group_join = dist.new_group(
@@ -297,7 +299,7 @@ class Executor:
                     self.metric.add_batch(
                         references=decoded_labels, predictions=decoded_preds)
 
-            dist.barrier()
+            dist.barrier() if is_distributed else None
             num_seen_utts = 1 if num_seen_utts == 0 else num_seen_utts
             self.cv_loss = total_loss / num_seen_utts
 
@@ -351,5 +353,5 @@ class Executor:
         if monitor_flag:
             dist.destroy_process_group(group_join)
 
-        dist.barrier()
-        self.logger.debug(f"Rank {rank} quit CV function")
+        dist.barrier() if is_distributed else None
+        self.logger.debug(f"Rank {rank} quit CV function, current step {self.step}")
