@@ -78,8 +78,16 @@ def get_args():
                         action='store_true',
                         default=False,
                         help='Whether to use timestamp training')
+    parser.add_argument('--monitor_train',
+                        action='store_true',
+                        default=False,
+                        help='Whether to use monitor training')
+    parser.add_argument('--monitor_cv',
+                        action='store_false',
+                        default=True,
+                        help='Whether to use monitor cv')
     parser.add_argument('--timeout',
-                        default=180,
+                        default=30,
                         type=int,
                         help='Dist timeout (in minutes)')
     parser.add_argument('--one_tar_nums',
@@ -190,6 +198,10 @@ def main(args):
     train_conf['save_model_dir'] = save_model_dir
     train_conf['cv_partition'] = cv_partition
     train_conf['timeout'] = args.timeout
+    train_conf['monitor_train'] = args.monitor_train
+    train_conf['monitor_cv'] = args.monitor_cv
+    train_conf['timeout'] = args.timeout
+
 
     # Load the dataset and dataloader
     train_dataset, train_one_card_utts = Dataset(args.data_type,

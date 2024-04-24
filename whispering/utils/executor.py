@@ -88,11 +88,11 @@ class Executor:
         is_distributed = train_conf.get('is_distributed', True)
         use_amp = train_conf.get('use_amp', False)
         timeout = train_conf.get('timeout', 60)
+        monitor_flag = train_conf.get('monitor_train', False)
 
         dist.barrier() if is_distributed else None
         self.logger.debug(f"Rank {rank} enter Train function, current step {self.step}")
 
-        monitor_flag = False # 建议设为False
         monitor_flag = monitor_flag if is_distributed else False
         if monitor_flag:
             # Note: monitoring process
@@ -237,12 +237,12 @@ class Executor:
         cv_partition = train_conf.get('cv_partition', False)
         cv_one_card_utts = train_conf['cv_one_card_utts']
         timeout = train_conf.get('timeout', 60)
+        monitor_flag = train_conf.get('monitor_cv', True)
 
 
         dist.barrier() if is_distributed else None
         self.logger.debug(f"Rank {rank} enter CV function, current step {self.step}")
 
-        monitor_flag = True
         monitor_flag = monitor_flag if is_distributed else False
         if monitor_flag:
             # Note: monitoring process
