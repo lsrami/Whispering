@@ -48,8 +48,9 @@ train_conf:
     max_epoch: 360
     max_step: 100000
     log_interval: 50
-    step_save_interval: 5000
-    epoch_save_interval: 1
+    step_save_interval: 0 # N steps eval and save model
+    epoch_save_interval: 1 # N epochs eval and save model
+    step_only_save_interval: 1000 # N steps only save model
 
 optim: adam # adam or adamw
 optim_conf:

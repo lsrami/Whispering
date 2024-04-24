@@ -29,7 +29,7 @@ from whispering.utils.checkpoint import save_checkpoint, save_checkpoint_best
 
 class Executor:
 
-    def __init__(self, step=0, max_step=10000, max_epoch=150, step_save_interval=100, epoch_save_interval=1, log_interval=10, metric_type='wer', best_metric=float('inf'), use_smooth_loss=False):
+    def __init__(self, step=0, max_step=10000, max_epoch=150, step_save_interval=100, step_only_save_interval=100, epoch_save_interval=1, log_interval=10, metric_type='wer', best_metric=float('inf'), use_smooth_loss=False):
         self.epoch = 0
         self.lr = 0.005
         self.should_stop = False
@@ -48,6 +48,7 @@ class Executor:
         self.max_step = max_step
         self.max_epoch = max_epoch
         self.step_save_interval = step_save_interval
+        self.step_only_save_interval = step_only_save_interval
         self.epoch_save_interval = epoch_save_interval
         self.log_interval = log_interval
         self.metric_type = metric_type
@@ -74,6 +75,25 @@ class Executor:
 
         return False
 
+    def save_model(self, model, whisper_processor, optimizer, scheduler, save_model_dir, current_metric, max_keep_checkpoint):
+        save_checkpoint_dir = os.path.join(
+            save_model_dir, f"checkpoint_epoch{self.epoch}_step{self.step}")
+        save_checkpoint(
+            model, whisper_processor, save_checkpoint_dir, optimizer, scheduler, {
+                'lr': self.lr,
+                'step': self.step,
+                'epoch': self.epoch,
+                'batch_idx': self.step,
+                'cv_loss': self.cv_loss,
+                'train_loss': self.train_loss,
+                'metric_type': self.metric_type,
+                'best_metric': current_metric,
+                'max_keep_checkpoint': max_keep_checkpoint
+            })
+        self.logger.info(f"Model saving completed: {save_checkpoint_dir}")
+        
+        return save_checkpoint_dir
+
     def train(self, model, optimizer, scheduler, train_data_loader, cv_data_loader, device,
               writer, train_conf, scaler, whisper_processor):
         ''' Train one epoch
@@ -89,6 +109,8 @@ class Executor:
         use_amp = train_conf.get('use_amp', False)
         timeout = train_conf.get('timeout', 60)
         monitor_flag = train_conf.get('monitor_train', False)
+        max_keep_checkpoint = train_conf.get('max_keep_checkpoint', 5)
+        save_model_dir = train_conf.get('save_model_dir', 'save_model_dir')
 
         dist.barrier() if is_distributed else None
         self.logger.debug(f"Rank {rank} enter Train function, current step {self.step}")
@@ -217,6 +239,10 @@ class Executor:
                             f'best_metric/{self.metric_type}', self.best_metric, self.step)
                         writer.add_scalar('loss/cv', self.cv_loss, self.step)
                     model.train()
+
+                if rank == 0 and self.step_save_interval == 0 and self.step_only_save_interval and self.step % self.step_only_save_interval == 0:
+                    self.save_model(model, whisper_processor, optimizer, scheduler, save_model_dir, 0.0, max_keep_checkpoint)
+
                     
         if monitor_flag:
             dist.destroy_process_group(group_join)
@@ -322,20 +348,7 @@ class Executor:
             if rank == 0:
                 self.cv_loss, current_metric = result_tensor[0].item(
                 ), result_tensor[1].item()
-                save_checkpoint_dir = os.path.join(
-                    save_model_dir, f"checkpoint_epoch{self.epoch}_step{self.step}")
-                save_checkpoint(
-                    model, whisper_processor, save_checkpoint_dir, optimizer, scheduler, {
-                        'lr': self.lr,
-                        'step': self.step,
-                        'epoch': self.epoch,
-                        'batch_idx': self.step,
-                        'cv_loss': self.cv_loss,
-                        'train_loss': self.train_loss,
-                        'metric_type': self.metric_type,
-                        'best_metric': current_metric,
-                        'max_keep_checkpoint': max_keep_checkpoint
-                    })
+                save_checkpoint_dir = self.save_model(model, whisper_processor, optimizer, scheduler, save_model_dir, current_metric, max_keep_checkpoint)
 
                 best_checkpoint_dir = os.path.join(
                     save_model_dir, f"checkpoint_best")

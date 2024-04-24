@@ -181,6 +181,7 @@ def main(args):
     max_step = train_conf.get('max_step', 10000)
     max_epoch = train_conf.get('max_epoch', 150)
     step_save_interval = train_conf.get('step_save_interval', 1000)
+    step_only_save_interval = train_conf.get('step_only_save_interval', 1000)
     epoch_save_interval = train_conf.get('epoch_save_interval', 1)
     log_interval = train_conf.get('log_interval', 100)
     use_amp = train_conf.get('use_amp', False)
@@ -325,6 +326,7 @@ def main(args):
                         max_step=max_step,
                         max_epoch=max_epoch,
                         step_save_interval=step_save_interval,
+                        step_only_save_interval=step_only_save_interval,
                         epoch_save_interval=epoch_save_interval,
                         log_interval=log_interval,
                         metric_type=metric_type,
@@ -333,6 +335,7 @@ def main(args):
     if rank == 0:
         logger.debug(
             f"max_step: {max_step} max_epoch: {max_epoch} step_save_interval: {step_save_interval} "
+            f"step_only_save_interval: {step_only_save_interval} monitor_train: {args.monitor_train} monitor_cv: {args.monitor_cv} "
             f"epoch_save_interval: {epoch_save_interval} log_interval: {log_interval} metric_type: {metric_type} "
             f"step: {step} start_epoch: {start_epoch} start_batch: {start_batch}")
 
