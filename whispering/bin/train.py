@@ -351,7 +351,8 @@ def main(args):
                 f"cv_one_card_utts: {cv_one_card_utts}")
         executor.train(model, optimizer, scheduler, train_data_loader, cv_data_loader, device,
                     writer, train_conf, scaler, whisper_processor)
-        if executor.epoch_save_interval and epoch + 1 % executor.epoch_save_interval == 0:
+                    
+        if executor.epoch_save_interval and (executor.epoch + 1) % executor.epoch_save_interval == 0:
             executor.cv(model, cv_data_loader, device,
                         train_conf, whisper_processor, optimizer, scheduler)
 

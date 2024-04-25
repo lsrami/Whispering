@@ -113,7 +113,7 @@ class Executor:
         save_model_dir = train_conf.get('save_model_dir', 'save_model_dir')
 
         dist.barrier() if is_distributed else None
-        self.logger.debug(f"Rank {rank} enter Train function, current step {self.step}")
+        self.logger.debug(f"Rank {rank} enter Train function, current epoch: {self.epoch} current step: {self.step}")
 
         monitor_flag = monitor_flag if is_distributed else False
         if monitor_flag:
@@ -248,7 +248,7 @@ class Executor:
             dist.destroy_process_group(group_join)
 
         dist.barrier() if is_distributed else None
-        self.logger.debug(f"Rank {rank} quit Train function, current step {self.step}")
+        self.logger.debug(f"Rank {rank} quit Train function, current epoch: {self.epoch} current step: {self.step}")
 
 
     def cv(self, model, data_loader, device, train_conf, whisper_processor, optimizer, scheduler):
@@ -267,7 +267,7 @@ class Executor:
 
 
         dist.barrier() if is_distributed else None
-        self.logger.debug(f"Rank {rank} enter CV function, current step {self.step}")
+        self.logger.debug(f"Rank {rank} enter CV function, current epoch: {self.epoch} current step: {self.step}")
 
         monitor_flag = monitor_flag if is_distributed else False
         if monitor_flag:
@@ -367,4 +367,4 @@ class Executor:
             dist.destroy_process_group(group_join)
 
         dist.barrier() if is_distributed else None
-        self.logger.debug(f"Rank {rank} quit CV function, current step {self.step}")
+        self.logger.debug(f"Rank {rank} quit CV function, current epoch: {self.epoch} current step: {self.step}")
