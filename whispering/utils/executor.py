@@ -121,9 +121,10 @@ class Executor:
             group_join = dist.new_group(
                 backend="gloo", timeout=timedelta(minutes=timeout))
 
-        if use_amp:
+        if rank == 0 and accum_grad > 1:
             self.logger.info('using accumulate grad, new batch size is {} times'
-                             ' larger than before'.format(accum_grad))
+                                ' larger than before'.format(accum_grad))
+        if use_amp:
             assert scaler is not None
         # A context manager to be used in conjunction with an instance of
         # torch.nn.parallel.DistributedDataParallel to be able to train
@@ -211,37 +212,37 @@ class Executor:
                     scheduler.step()
                     self.step += 1
 
-                # Record loss once every N log_intervals
-                if rank == 0 and self.step % self.log_interval == 0:
-                    writer.add_scalar(
-                        'loss/train', self.train_loss, self.step)
-                    writer.add_scalar('batch/batch_size',
-                                        num_utts, self.step)
-                    writer.add_scalar('lr/lr', self.lr, self.step)
-
-                    progress_current_epoch = num_seen_utts / train_one_card_utts
-                    progress_max_epoch = (self.epoch + progress_current_epoch ) / self.max_epoch
-
-                    self.logger.info(
-                        f"Train-stage epoch: {self.epoch} step: {self.step} batch_idx: {batch_idx} "
-                        f"train_loss: {self.train_loss:.6f} lr: {self.lr:.2e} num_seen_utts: {num_seen_utts} "
-                        f"progress_current_epoch: {progress_current_epoch*100:.8f}% "
-                        f"progress_max_epoch: {progress_max_epoch*100:.8f}% "
-                        f"progress_max_step: {(self.step/self.max_step)*100:.8f}%")
-
-                # Validate and save the model once every N save_step_intervals
-                if self.step_save_interval and self.step % self.step_save_interval == 0:
-                    dist.barrier() if is_distributed else None
-                    self.cv(model, cv_data_loader, device, train_conf,
-                            whisper_processor, optimizer, scheduler)
-                    if rank == 0:
+                    # Record loss once every N log_intervals
+                    if rank == 0 and self.step % self.log_interval == 0:
                         writer.add_scalar(
-                            f'best_metric/{self.metric_type}', self.best_metric, self.step)
-                        writer.add_scalar('loss/cv', self.cv_loss, self.step)
-                    model.train()
+                            'loss/train', self.train_loss, self.step)
+                        writer.add_scalar('batch/batch_size',
+                                            num_utts, self.step)
+                        writer.add_scalar('lr/lr', self.lr, self.step)
 
-                if rank == 0 and self.step_save_interval == 0 and self.step_only_save_interval and self.step % self.step_only_save_interval == 0:
-                    self.save_model(model, whisper_processor, optimizer, scheduler, save_model_dir, 0.0, max_keep_checkpoint)
+                        progress_current_epoch = num_seen_utts / train_one_card_utts
+                        progress_max_epoch = (self.epoch + progress_current_epoch ) / self.max_epoch
+
+                        self.logger.info(
+                            f"Train-stage epoch: {self.epoch} step: {self.step} batch_idx: {batch_idx} "
+                            f"train_loss: {self.train_loss:.6f} lr: {self.lr:.2e} num_seen_utts: {num_seen_utts} "
+                            f"progress_current_epoch: {progress_current_epoch*100:.8f}% "
+                            f"progress_max_epoch: {progress_max_epoch*100:.8f}% "
+                            f"progress_max_step: {(self.step/self.max_step)*100:.8f}%")
+
+                    # Validate and save the model once every N save_step_intervals
+                    if self.step_save_interval and self.step % self.step_save_interval == 0:
+                        dist.barrier() if is_distributed else None
+                        self.cv(model, cv_data_loader, device, train_conf,
+                                whisper_processor, optimizer, scheduler)
+                        if rank == 0:
+                            writer.add_scalar(
+                                f'best_metric/{self.metric_type}', self.best_metric, self.step)
+                            writer.add_scalar('loss/cv', self.cv_loss, self.step)
+                        model.train()
+
+                    if rank == 0 and self.step_save_interval == 0 and self.step_only_save_interval and self.step % self.step_only_save_interval == 0:
+                        self.save_model(model, whisper_processor, optimizer, scheduler, save_model_dir, 0.0, max_keep_checkpoint)
 
                     
         if monitor_flag:
