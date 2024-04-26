@@ -141,10 +141,6 @@ class Executor:
                     self.should_stop = True
                     break
 
-                if monitor_flag:
-                    if self.whispering_join(group_join, batch_idx):
-                        break
-
                 if self.epoch == start_epoch and batch_idx < start_batch:
                     if rank == 0 and batch_idx % 1000 == 0:
                         self.logger.debug(
@@ -232,7 +228,9 @@ class Executor:
 
                     # Validate and save the model once every N save_step_intervals
                     if self.step_save_interval and self.step % self.step_save_interval == 0:
-                        dist.barrier() if is_distributed else None
+                        if monitor_flag:
+                            if self.whispering_join(group_join, batch_idx):
+                                continue
                         self.cv(model, cv_data_loader, device, train_conf,
                                 whisper_processor, optimizer, scheduler)
                         if rank == 0:

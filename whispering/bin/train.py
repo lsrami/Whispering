@@ -83,7 +83,7 @@ def get_args():
                         default=False,
                         help='Whether to use monitor training')
     parser.add_argument('--monitor_cv',
-                        action='store_false',
+                        action='store_true',
                         default=True,
                         help='Whether to use monitor cv')
     parser.add_argument('--timeout',

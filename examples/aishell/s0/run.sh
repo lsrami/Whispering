@@ -73,7 +73,7 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
     # --use_smooth_loss # 是否使用标签平滑损失
     # --cv_partition # 训练过程中是否多卡验证
     # --monitor_train # 如果设置则 监控训练进程通信
-    # --monitor_cv # 如果设置则 取消监控验证进程通信
+    # --monitor_cv # 如果设置则 监控验证进程通信
     # --timeout # 进程通信超时时间
     # --one_tar_nums # 一个tar包中音频个数，用于计算训练进度
 fi
