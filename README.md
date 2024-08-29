@@ -29,6 +29,7 @@ Whispering支持[OpenAI](https://huggingface.co/openai)在hugging face上开源�
 - 支持spec_aug、shuffle增强等数据增强方式
 - 支持cer、wer、bleu等多个指标选择最优模型
 - 支持交叉熵/标签平滑两种损失函数
+- 支持base、large和large-v3模型
 
 
 <a name="环境安装"></a>
@@ -146,8 +147,6 @@ tail finetuned_model/whispering/test_cer.txt
 - [已知问题清单](./docs/issues_list.md)
 
 如果您在使用中遇到其他问题，可以直接在github页面提Issues，欢迎语音兴趣爱好者进行交流和讨论。
-
-
 <a name="致谢名单"></a>
 ## 致谢名单
 1. dataloader及trainer大量参考[wenet](https://github.com/wenet-e2e/wenet)实现
